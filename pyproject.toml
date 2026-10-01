@@ -27,6 +27,10 @@ estim2b = [
     "estim2py==0.2.2; python_version < '3.13'",
     "estim2py>=0.3.0; python_version >= '3.13'",
 ]
+# Desktop control window (estim-camming gui).
+gui = [
+    "PySide6-Essentials>=6.6",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",

@@ -36,6 +36,7 @@ patterns, with their options.
 |---|---|
 | `pip install -r requirements-dev.txt` | pytest, ruff and Sphinx, for development and building this documentation |
 | `pip install -e '.[estim2b]'` | The E-Stim 2B device, see [E-Stim 2B setup](estim2b.md) |
+| `pip install -e '.[gui]'` | The desktop control window (`estim-camming gui`), see [Control window](gui.md) |
 
 Device and platform plugins from other packages are installed with `pip` as
 well. They show up in `estim-camming plugins` automatically.

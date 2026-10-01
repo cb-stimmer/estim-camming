@@ -121,3 +121,20 @@ validates everything at start-up. The old `channels = ["A"]` form still works.
 **Consequence.** The action JSON in overlay/WebSocket messages has `outputs`
 instead of `pattern`/`intensity`/`channels`. The bundled pages never used those
 fields.
+
+## ADR-013: Desktop GUI as an API client that owns an engine child process
+
+**Decision.** The optional desktop window (PySide6) talks to the existing
+control API, polling `/api/state`. `estim-camming gui` starts the engine as a
+child process with `--exit-on-stdin-close`. `--connect` attaches to a running
+engine instead.
+**Why.** The user wanted a window to tile next to OBS and chat. Reusing the
+control API keeps one control path and keeps all safety logic in the engine. A
+separate process isolates output timing from the UI, and the stdin pipe ties the
+engine's life to the window's on every OS, crashes included, without
+platform-specific parent-death signals. Qt was chosen over Tkinter for native
+Wayland/KDE support. Polling instead of the WebSocket because QtWebSockets is
+not in `PySide6-Essentials`.
+**Consequence.** The display updates at about 4 Hz (commands are immediate). The
+GUI needs the overlay server enabled. PySide6 is an optional extra (`[gui]`,
+about 230 MB).

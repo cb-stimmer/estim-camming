@@ -70,9 +70,15 @@ S11. **No forged tips.** A forged tip is a way to trigger the device.
      - The bridge `room` option stops tips from other rooms the performer is
        browsing.
 
+S12. **The GUI is a client, and its engine dies with it.** The desktop window
+     only uses the control API (S1, S10 apply unchanged). An engine it started
+     runs with `--exit-on-stdin-close` and shuts down (S9) as soon as the GUI's
+     end of the pipe closes, including when the GUI crashes. See [GUI](gui.md).
+
 ## Controls available to the performer
 
-- Control panel **STOP** button, plus keyboard shortcuts **Esc** and **Space**.
+- Control panel **STOP** button, plus keyboard shortcuts **Esc** and **Space**,
+  in the web panel and in the desktop window.
 - **Arm** button (the only way to arm unless `start_armed`).
 - **Master level** slider (S4 `scale`).
 - **Skip current** and **Clear queue**.

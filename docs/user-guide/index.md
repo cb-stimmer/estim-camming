@@ -10,5 +10,6 @@ configuration
 stripchat
 estim2b
 obs-setup
+gui
 troubleshooting
 ```

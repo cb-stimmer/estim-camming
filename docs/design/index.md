@@ -18,6 +18,7 @@ commit.
 | [Rules and patterns](rules-and-patterns.md) | Tip → action mapping, waveform patterns |
 | [Safety](safety.md) | Safety invariants and how they are enforced |
 | [Overlay and control panel](overlay.md) | Web server, WebSocket protocol, OBS integration |
+| [Desktop control window](gui.md) | PySide6 GUI, engine child process, stdin watchdog |
 | [Configuration](configuration.md) | Config file schema and validation |
 | [Decision log](decisions.md) | Architecture decision records |
 
@@ -32,6 +33,7 @@ devices
 rules-and-patterns
 safety
 overlay
+gui
 configuration
 decisions
 ```

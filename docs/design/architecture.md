@@ -31,7 +31,8 @@
 | Device plugins | `estim_camming.devices` | Translate normalised levels to hardware commands |
 | Overlay server | `estim_camming.overlay` | OBS overlay, control panel, WebSocket, control API |
 | Application | `estim_camming.app` | Build everything from config, run and supervise tasks |
-| CLI | `estim_camming.cli` | `run`, `check`, `init`, `userscript`, `plugins` commands |
+| Desktop GUI | `estim_camming.gui` | Optional Qt control window; client of the control API, starts the engine as a child process ([GUI](gui.md)) |
+| CLI | `estim_camming.cli` | `run`, `gui`, `check`, `init`, `userscript`, `plugins` commands |
 
 ## Data flow
 
@@ -99,4 +100,5 @@ src/estim_camming/
   platforms/        base.py, simulator.py, chaturbate.py, bridge.py (+ bridge.user.js), stripchat.py
   devices/          base.py, dummy.py, estim2b.py
   overlay/          server.py, static/{overlay.html, control.html, common.js}
+  gui/              main.py, window.py, client.py, engine.py, model.py (PySide6, optional)
 ```

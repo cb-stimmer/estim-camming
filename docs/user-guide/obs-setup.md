@@ -42,7 +42,8 @@ body { font-size: 24px; }
 Don't add the control panel to your scene. Open
 `http://127.0.0.1:8765/control` in a normal browser window, or as an OBS
 **Custom Browser Dock** (**Docks** → **Custom Browser Docks…**) so the STOP
-button is always next to your OBS controls.
+button is always next to your OBS controls. Or use the desktop
+[control window](gui.md) (`estim-camming gui`) and tile it next to OBS.
 
 ## Notes
 

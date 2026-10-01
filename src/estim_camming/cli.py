@@ -1,4 +1,4 @@
-"""Command-line interface: ``estim-camming {run,check,init,userscript,plugins}``."""
+"""Command-line interface: ``estim-camming <command>`` (see ``--help``)."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ import contextlib
 import logging
 import signal
 import sys
+import threading
 from importlib.resources import files
 from pathlib import Path
 
@@ -25,12 +26,34 @@ def _build(config_path: str):
     return Application(load_config(config_path))
 
 
-async def _run_until_signalled(app) -> None:
+def _watch_stdin(loop: asyncio.AbstractEventLoop, task: asyncio.Task) -> None:
+    """Cancel ``task`` when stdin reaches end-of-file.
+
+    Used when the GUI starts the engine: the GUI holds the other end of the
+    pipe, so if the GUI exits or crashes the pipe closes and the engine shuts
+    down (and zeroes the device) instead of running on unattended.
+    """
+
+    def wait() -> None:
+        with contextlib.suppress(Exception):
+            while sys.stdin.buffer.read(1024):
+                pass
+        logging.getLogger(__name__).warning("controlling GUI went away - shutting down")
+        with contextlib.suppress(RuntimeError):  # loop already closed
+            loop.call_soon_threadsafe(task.cancel)
+
+    threading.Thread(target=wait, name="stdin-watchdog", daemon=True).start()
+
+
+async def _run_until_signalled(app, exit_on_stdin_close: bool = False) -> None:
     # Turn SIGTERM into cancellation so the device is stopped on the way out.
     task = asyncio.current_task()
     assert task is not None
+    loop = asyncio.get_running_loop()
     with contextlib.suppress(NotImplementedError):  # not available on Windows
-        asyncio.get_running_loop().add_signal_handler(signal.SIGTERM, task.cancel)
+        loop.add_signal_handler(signal.SIGTERM, task.cancel)
+    if exit_on_stdin_close:
+        _watch_stdin(loop, task)
     with contextlib.suppress(asyncio.CancelledError):
         await app.run()
 
@@ -38,8 +61,20 @@ async def _run_until_signalled(app) -> None:
 def cmd_run(args: argparse.Namespace) -> int:
     app = _build(args.config)
     with contextlib.suppress(KeyboardInterrupt):
-        asyncio.run(_run_until_signalled(app))
+        asyncio.run(_run_until_signalled(app, args.exit_on_stdin_close))
     return 0
+
+
+def cmd_gui(args: argparse.Namespace) -> int:
+    try:
+        from estim_camming.gui.main import run_gui
+    except ImportError as exc:
+        print(
+            f"error: the GUI needs PySide6 (install with: pip install -e '.[gui]'): {exc}",
+            file=sys.stderr,
+        )
+        return 2
+    return run_gui(args)
 
 
 def cmd_check(args: argparse.Namespace) -> int:
@@ -87,6 +122,38 @@ def cmd_userscript(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_desktop_entry(args: argparse.Namespace) -> int:
+    """Install (or remove) a launcher entry and icon for the GUI in the user's
+    data directory (~/.local/share), so menus and taskbars show the app."""
+    import shutil
+
+    from estim_camming.gui import model  # no Qt needed
+
+    apps = model.data_home() / "applications"
+    icons = model.data_home() / "icons" / "hicolor" / "scalable" / "apps"
+    entry = apps / f"{model.APP_ID}.desktop"
+    icon = icons / f"{model.APP_ID}.svg"
+    if args.remove:
+        for path in (entry, icon):
+            if path.exists():
+                path.unlink()
+                print(f"removed {path}")
+        return 0
+    config = Path(args.config)
+    if not config.is_file():
+        print(f"error: config file not found: {config}", file=sys.stderr)
+        return 2
+    load_config(config)  # refuse to install an entry for a broken config
+    apps.mkdir(parents=True, exist_ok=True)
+    icons.mkdir(parents=True, exist_ok=True)
+    entry.write_text(model.desktop_entry(config))
+    shutil.copyfile(model.icon_path(), icon)
+    print(f"wrote {entry}")
+    print(f"wrote {icon}")
+    print("estim-camming now appears in the application menu (it may take a moment).")
+    return 0
+
+
 def cmd_plugins(args: argparse.Namespace) -> int:
     for title, registry in (("platforms", PLATFORMS), ("devices", DEVICES), ("patterns", PATTERNS)):
         print(f"{title}:")
@@ -108,7 +175,26 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("run", help="run the application")
     p.add_argument("-c", "--config", default=DEFAULT_CONFIG)
+    p.add_argument(
+        "--exit-on-stdin-close",
+        action="store_true",
+        help="shut down when stdin closes (used by the GUI to stop the engine with it)",
+    )
     p.set_defaults(func=cmd_run)
+
+    p = sub.add_parser("gui", help="open the control window (starts the application too)")
+    p.add_argument("-c", "--config", default=DEFAULT_CONFIG)
+    p.add_argument(
+        "--connect",
+        action="store_true",
+        help="connect to an already running application instead of starting one",
+    )
+    p.set_defaults(func=cmd_gui)
+
+    p = sub.add_parser("desktop-entry", help="add (or --remove) a menu/taskbar entry for the GUI")
+    p.add_argument("-c", "--config", default=DEFAULT_CONFIG)
+    p.add_argument("--remove", action="store_true")
+    p.set_defaults(func=cmd_desktop_entry)
 
     p = sub.add_parser("check", help="validate a config file without connecting")
     p.add_argument("-c", "--config", default=DEFAULT_CONFIG)

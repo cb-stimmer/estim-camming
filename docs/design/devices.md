@@ -113,8 +113,10 @@ library's documented API: `Estim2pyConnection(port, timeout, delay)`,
   box that mimics the library's behaviour (doubled levels, A/B reset on
   power/mode change). `tests/test_estim2b_serial.py` runs the real library and
   pyserial against a fake box on a pseudo-terminal (skipped if estim2py isn't
-  installed, or on Windows). Verified with estim2py 0.2.2 on Python 3.12. It was
-  not tested with a real 2B in this repository.
+  installed, or on Windows). Verified with estim2py 0.2.2 on Python 3.12.
+  **Hardware check 2026-10-01:** the user tested a real 2B (without electrodes):
+  basic control and `min_output` work as expected. Per-channel rules (ADR-012)
+  have not been checked on hardware yet.
 
 ## Adding a device
 
