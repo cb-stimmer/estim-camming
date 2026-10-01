@@ -1,0 +1,115 @@
+# estim-camming configuration. Full reference: docs/user-guide/configuration.md
+# This example uses the simulator platform and the dummy device, so it is safe
+# to run without any hardware or streaming account.
+
+[device]
+type = "dummy"
+[device.options]
+channels = ["A", "B"]
+
+# E-Stim Systems 2B (needs: pip install -e '.[estim2b]').
+# See docs/user-guide/estim2b.md.
+# [device]
+# type = "estim2b"
+# [device.options]
+# port = "/dev/ttyUSB0"
+# power = "low"
+# mode = "continuous"
+# min_output = 10    # lowest box level when on (0 = off stays off)
+# max_output = 40    # hard ceiling on the box level (0-100)
+
+# One [[platforms]] block per streaming site. Several may run at once.
+[[platforms]]
+type = "simulator"
+[platforms.options]
+interval = 8          # average seconds between random tips
+min_tokens = 1
+max_tokens = 120
+
+# [[platforms]]
+# type = "chaturbate"
+# [platforms.options]
+# url = "https://eventsapi.chaturbate.com/events/YOUR_USERNAME/YOUR_TOKEN/"
+
+# Stripchat has no tip API: tips are read from your Stripchat page by a
+# browser userscript. See docs/user-guide/stripchat.md for the setup.
+# [[platforms]]
+# type = "stripchat"
+# [platforms.options]
+# token = "CHANGE-ME-to-a-long-random-string"
+# room = "your_stripchat_username"   # only forward tips from your own room
+# port = 8766
+
+[safety]
+start_armed = false           # arm manually from the control panel
+max_level = 0.5               # output at rule intensity 1.0 (fraction of device maximum)
+# channel_max_level = { A = 0.4, B = 0.6 }
+max_change_per_second = 0.5   # soft start: at most +50% of full scale per second
+max_action_seconds = 60
+
+[scheduler]
+tick_hz = 20
+max_queue = 50
+
+[overlay]
+enabled = true
+host = "127.0.0.1"
+port = 8765
+recent_tips = 10
+# control_token = "change-me"  # required if host is not 127.0.0.1
+
+# Tip rules: first matching rule wins. intensity is relative to max_level.
+[[rules]]
+name = "tease"
+label = "Tease"
+min_tokens = 1
+max_tokens = 24
+pattern = "pulse"
+params = { period = 1.0, duty = 0.3 }
+intensity = 0.3
+duration = 5
+
+[[rules]]
+name = "wave"
+label = "Waves"
+min_tokens = 25
+max_tokens = 49
+pattern = "wave"
+params = { period = 3.0, low = 0.2, high = 1.0 }
+intensity = 0.5
+duration = 10
+
+[[rules]]
+name = "ramp"
+label = "Build up"
+min_tokens = 50
+max_tokens = 98
+pattern = "ramp"
+params = { start = 0.1, end = 1.0 }
+intensity = 0.7
+duration = 15
+
+# A and B can do different things: settings under [rules.channels.X] override
+# the rule's pattern/params/intensity for that channel. Channels not listed stay off.
+[[rules]]
+name = "special"
+label = "Special: 99"
+tokens = 99
+duration = 20
+[rules.channels.A]
+pattern = "pulse"
+params = { period = 0.5, duty = 0.5 }
+intensity = 0.8
+[rules.channels.B]
+pattern = "wave"
+params = { period = 4.0, low = 0.2, high = 1.0 }
+intensity = 0.5
+
+[[rules]]
+name = "big"
+label = "Big tip (longer with more tokens)"
+min_tokens = 100
+pattern = "constant"
+intensity = 1.0
+duration = 10
+duration_per_token = 0.1

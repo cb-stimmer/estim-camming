@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>estim-camming overlay</title>
+<!--
+  OBS Browser Source. Choose widgets with ?widgets=menu,current,queue,tips,levels
+  (default: all). Add one source per widget to position them independently.
+  Style overrides can go in the OBS "Custom CSS" field.
+-->
+<style>
+  :root { --fg: #fff; --accent: #ff4fa3; --bg: rgba(20, 10, 30, 0.72); --muted: #d8c8e8; }
+  html, body { background: transparent; margin: 0; color: var(--fg);
+    font: 600 20px/1.3 "Segoe UI", system-ui, sans-serif; text-shadow: 0 1px 3px #000; }
+  .widget { background: var(--bg); border-radius: 12px; padding: 12px 16px; margin: 8px;
+    max-width: 480px; }
+  .widget h2 { margin: 0 0 6px; font-size: 16px; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--accent); }
+  .row { display: flex; justify-content: space-between; gap: 16px; }
+  .muted { color: var(--muted); font-weight: 400; }
+  .progress { height: 8px; background: rgba(255,255,255,.2); border-radius: 4px; margin-top: 6px; }
+  .progress > div { height: 100%; background: var(--accent); border-radius: 4px; }
+  .bar { display: flex; align-items: center; gap: 8px; }
+  .bar .track { flex: 1; height: 10px; background: rgba(255,255,255,.2); border-radius: 5px; }
+  .bar .fill { display: block; height: 100%; background: var(--accent); border-radius: 5px;
+    transition: width .1s linear; }
+  .bar .pct { width: 3.5em; text-align: right; }
+  #flash { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) scale(.8);
+    opacity: 0; background: var(--accent); padding: 12px 24px; border-radius: 30px;
+    font-size: 28px; transition: all .3s; }
+  #flash.show { opacity: 1; transform: translateX(-50%) scale(1); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div id="flash"></div>
+<section class="widget" id="menu"><h2>Tip menu</h2><div class="body"></div></section>
+<section class="widget" id="current"><h2>Now</h2><div class="body"></div></section>
+<section class="widget" id="queue"><h2>Up next</h2><div class="body"></div></section>
+<section class="widget" id="levels"><h2>Output</h2><div class="body"></div></section>
+<section class="widget" id="tips"><h2>Recent tips</h2><div class="body"></div></section>
+<script src="/static/common.js"></script>
+<script>
+  const params = new URLSearchParams(location.search);
+  const wanted = (params.get("widgets") || "menu,current,queue,levels,tips").split(",");
+  for (const el of document.querySelectorAll(".widget")) el.hidden = !wanted.includes(el.id);
+
+  const body = (id) => document.querySelector(`#${id} .body`);
+  let current = null, flashTimer = null;
+
+  function render(state, event) {
+    body("menu").innerHTML = state.menu.map((m) =>
+      `<div class="row"><span>${escapeHtml(m.label)}</span><span>${tokenRange(m)}</span></div>`
+    ).join("");
+    current = state.current ? { ...state.current, receivedAt: performance.now() } : null;
+    body("queue").innerHTML = state.queue.length
+      ? state.queue.slice(0, 5).map((a) =>
+          `<div class="row"><span>${escapeHtml(a.label)}</span>` +
+          `<span class="muted">${escapeHtml(a.tip ? a.tip.username : "")}</span></div>`).join("") +
+        (state.queue.length > 5 ? `<div class="muted">+${state.queue.length - 5} more</div>` : "")
+      : `<div class="muted">Queue empty</div>`;
+    body("levels").innerHTML = state.armed ? levelBars(state) : `<div class="muted">Paused</div>`;
+    body("tips").innerHTML = state.recent_tips.length
+      ? state.recent_tips.map((t) =>
+          `<div class="row"><span>${escapeHtml(t.username)}</span><span>${t.tokens}</span></div>`
+        ).join("")
+      : `<div class="muted">No tips yet</div>`;
+    if (event && event.type === "tip") flash(`${event.username} tipped ${event.tokens}`);
+    renderCurrent();
+  }
+
+  function renderCurrent() {
+    if (!current) { body("current").innerHTML = `<div class="muted">Waiting for tips…</div>`; return; }
+    const elapsed = current.elapsed + (performance.now() - current.receivedAt) / 1000;
+    const remaining = Math.max(0, current.duration - elapsed);
+    const pct = Math.min(100, (elapsed / current.duration) * 100);
+    body("current").innerHTML =
+      `<div class="row"><span>${escapeHtml(current.label)}</span><span>${remaining.toFixed(0)}s</span></div>` +
+      `<div class="muted">${escapeHtml(current.tip ? current.tip.username : "")}</div>` +
+      `<div class="progress"><div style="width:${pct}%"></div></div>`;
+  }
+
+  function flash(text) {
+    const el = document.getElementById("flash");
+    el.textContent = text;
+    el.classList.add("show");
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => el.classList.remove("show"), 3000);
+  }
+
+  setInterval(renderCurrent, 250);
+  connect(render);
+</script>
+</body>
+</html>

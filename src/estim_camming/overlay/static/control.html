@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>estim-camming control</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; margin: 0; padding: 16px; background: #16121c;
+    color: #eee; max-width: 720px; margin-inline: auto; }
+  h1 { font-size: 20px; margin: 0 0 12px; }
+  section { background: #231d2c; border-radius: 10px; padding: 12px 16px; margin-bottom: 12px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .08em; color: #b9a6d0; margin: 0 0 8px; }
+  button { font: inherit; border: 0; border-radius: 8px; padding: 10px 16px; cursor: pointer;
+    background: #3b3148; color: #eee; }
+  button:hover { filter: brightness(1.2); }
+  #stop { background: #d0203a; font-size: 28px; font-weight: 700; width: 100%; padding: 24px; }
+  #arm { background: #2f7d45; }
+  .status { font-size: 22px; font-weight: 700; }
+  .armed { color: #6fe08a; } .disarmed { color: #ff6b7d; }
+  .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  input { font: inherit; padding: 8px; border-radius: 6px; border: 1px solid #555;
+    background: #16121c; color: #eee; }
+  input[type=range] { flex: 1; }
+  .bar { display: flex; align-items: center; gap: 8px; }
+  .bar .track { flex: 1; height: 12px; background: #3b3148; border-radius: 6px; }
+  .bar .fill { display: block; height: 100%; background: #ff4fa3; border-radius: 6px; }
+  .bar .pct { width: 3.5em; text-align: right; }
+  .muted { color: #9a8fa8; }
+  #conn { float: right; font-size: 13px; }
+  ul { margin: 0; padding-left: 18px; }
+</style>
+</head>
+<body>
+<h1>estim-camming <span id="conn" class="muted">connecting…</span></h1>
+
+<section>
+  <button id="stop" title="Shortcut: Esc or Space">STOP</button>
+  <div class="row" style="margin-top:10px">
+    <span id="status" class="status">…</span>
+    <button id="arm">Arm output</button>
+  </div>
+  <p class="muted" style="margin:6px 0 0">Stopping disarms output and clears the queue.
+    Keyboard: <b>Esc</b> or <b>Space</b> = stop.</p>
+</section>
+
+<section>
+  <h2>Master level</h2>
+  <div class="row"><input id="scale" type="range" min="0" max="100" step="1"><span id="scaleVal"></span></div>
+  <p class="muted" style="margin:6px 0 0">Scales all output below the configured maximum. It can only reduce, never exceed, the limits in your config.</p>
+</section>
+
+<section><h2>Output</h2><div id="levels"></div></section>
+
+<section>
+  <h2>Now playing / queue</h2>
+  <div id="current" class="muted"></div>
+  <ul id="queue"></ul>
+  <div class="row" style="margin-top:8px"><button id="skip">Skip current</button><button id="clear">Clear queue</button></div>
+</section>
+
+<section>
+  <h2>Test tip</h2>
+  <form id="tipform" class="row">
+    <input id="tipuser" placeholder="username" value="test" size="10">
+    <input id="tiptokens" type="number" min="1" value="10" style="width:6em">
+    <button type="submit">Send test tip</button>
+  </form>
+</section>
+
+<section><h2>Platforms</h2><ul id="platforms"></ul></section>
+<section><h2>Recent tips (<span id="total">0</span> tokens this session)</h2><ul id="tips"></ul></section>
+
+<script src="/static/common.js"></script>
+<script>
+  const token = new URLSearchParams(location.search).get("token") || "";
+  const $ = (id) => document.getElementById(id);
+
+  async function post(path, body) {
+    const res = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Control-Token": token },
+      body: JSON.stringify(body || {}),
+    });
+    if (!res.ok) window.console.error(path, res.status, await res.text());
+  }
+
+  $("stop").onclick = () => post("/api/stop");
+  $("arm").onclick = () => post("/api/arm");
+  $("skip").onclick = () => post("/api/skip");
+  $("clear").onclick = () => post("/api/clear");
+  $("scale").oninput = (e) => { $("scaleVal").textContent = e.target.value + "%"; };
+  $("scale").onchange = (e) => post("/api/scale", { scale: e.target.value / 100 });
+  $("tipform").onsubmit = (e) => {
+    e.preventDefault();
+    post("/api/tip", { username: $("tipuser").value, tokens: Number($("tiptokens").value) });
+  };
+  document.addEventListener("keydown", (e) => {
+    if (e.target.tagName === "INPUT") return;
+    if (e.key === "Escape" || e.key === " ") { e.preventDefault(); post("/api/stop"); }
+  });
+
+  function render(state) {
+    $("status").textContent = state.armed ? "ARMED" : "DISARMED";
+    $("status").className = "status " + (state.armed ? "armed" : "disarmed");
+    $("arm").hidden = state.armed;
+    if (document.activeElement !== $("scale")) {
+      $("scale").value = Math.round(state.scale * 100);
+      $("scaleVal").textContent = Math.round(state.scale * 100) + "%";
+    }
+    $("levels").innerHTML = levelBars(state);
+    $("current").textContent = state.current
+      ? `▶ ${state.current.label} (${state.current.duration.toFixed(0)}s)`
+      : "Idle";
+    $("queue").innerHTML = state.queue.map((a) =>
+      `<li>${escapeHtml(a.label)} <span class="muted">${escapeHtml(a.tip ? a.tip.username : "")}</span></li>`
+    ).join("");
+    $("platforms").innerHTML = Object.entries(state.platforms).map(([name, s]) =>
+      `<li>${escapeHtml(name)}: ${s.connected ? "connected" : "<b>disconnected</b>"} ` +
+      `<span class="muted">${escapeHtml(s.detail)}</span></li>`
+    ).join("") || `<li class="muted">No platforms configured</li>`;
+    $("tips").innerHTML = state.recent_tips.map((t) =>
+      `<li>${escapeHtml(t.username)}: ${t.tokens} <span class="muted">(${escapeHtml(t.platform)})</span></li>`
+    ).join("");
+    $("total").textContent = state.total_tokens;
+  }
+
+  connect(render, (ok) => {
+    $("conn").textContent = ok ? "connected" : "disconnected – retrying";
+    $("conn").style.color = ok ? "" : "#ff6b7d";
+  });
+</script>
+</body>
+</html>

@@ -216,3 +216,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local configuration (may contain API tokens)
+config.toml
+# Generated userscripts (contain the bridge token)
+/*.user.js

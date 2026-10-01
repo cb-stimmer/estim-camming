@@ -1,0 +1,3 @@
+# Runtime install: pip install -r requirements.txt
+# Dependencies are defined in pyproject.toml; this installs the package (editable) with them.
+-e .

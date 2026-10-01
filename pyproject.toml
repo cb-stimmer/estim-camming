@@ -1,0 +1,55 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "estim-camming"
+version = "0.1.0"
+description = "Control a device from tips received on webcam streaming sites, with an OBS overlay."
+readme = "README.md"
+license = "BSD-2-Clause"
+requires-python = ">=3.11"
+dependencies = [
+    "aiohttp>=3.9",
+    "pydantic>=2.5",
+    "yarl>=1.9",
+]
+
+[project.optional-dependencies]
+docs = [
+    "sphinx>=7.2",
+    "myst-parser>=2.0",
+    "furo>=2024.1",
+]
+# E-Stim Systems 2B (serial). estim2py 0.3.0 needs Python 3.13+ (its metadata
+# wrongly says 3.8+), so older Pythons get 0.2.2, which has the same API.
+estim2b = [
+    "estim2py==0.2.2; python_version < '3.13'",
+    "estim2py>=0.3.0; python_version >= '3.13'",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+estim-camming = "estim_camming.cli:main"
+
+# Third-party plugins register themselves in these entry-point groups:
+#   estim_camming.platforms, estim_camming.devices, estim_camming.patterns
+# See docs/design/plugins.md.
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/estim_camming"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
