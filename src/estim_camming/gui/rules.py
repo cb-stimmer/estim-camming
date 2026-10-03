@@ -170,7 +170,10 @@ class ParamsForm(QWidget):
             form.addRow(extra)
 
     def _build(self, field: rules_model.ParamField, value: Any):
-        emit = self.changed.emit
+        # The widgets' signals carry the new value; changed() takes no arguments.
+        def emit(*_: Any) -> None:
+            self.changed.emit()
+
         if field.kind in ("number", "integer"):
             spin = _guard(QDoubleSpinBox() if field.kind == "number" else QSpinBox())
             low = field.minimum if field.minimum is not None else -1e9

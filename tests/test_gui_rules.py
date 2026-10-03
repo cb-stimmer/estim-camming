@@ -167,3 +167,25 @@ def test_drag_and_drop_reorders_the_draft(editor):
     wait_until(app, lambda: [r["name"] for r in rules._draft] == names[::-1], what="reordered")
     assert rules.tree.topLevelItem(0).text(0).endswith("1")
     assert rules._dirty
+
+
+def test_pattern_options_reach_the_draft_preview_and_file(editor):
+    from PySide6.QtWidgets import QCheckBox, QDoubleSpinBox, QSpinBox
+
+    app, window, rules, state, config, _ = editor
+    main = rules.form.main
+    main.pattern.setCurrentIndex(main.pattern.findData("wave"))
+    period = main.params.findChildren(QDoubleSpinBox)[0]
+    before = rules.form.preview._series["A"][1]
+    period.setValue(0.5)
+    assert rules._draft[0]["params"] == {"period": 0.5}
+    assert rules.form.preview._series["A"][1] != before
+
+    main.pattern.setCurrentIndex(main.pattern.findData("random_level"))
+    seed_set = next(b for b in main.params.findChildren(QCheckBox) if b.text() == "set")
+    seed_set.setChecked(True)
+    main.params.findChildren(QSpinBox)[0].setValue(7)
+    assert rules._draft[0]["params"] == {"seed": 7}
+    rules.save_button.click()
+    wait_until(app, lambda: not rules._dirty, what="saved")
+    assert saved_rules(config)[0]["params"] == {"seed": 7}
