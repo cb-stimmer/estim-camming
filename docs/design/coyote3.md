@@ -1,8 +1,8 @@
 # DG-LAB Coyote 3.0 device
 
 **Status: accepted ([ADR-018](decisions.md)), in development.** Phase 1
-(protocol functions) is in progress; the plugin itself and the hardware checks
-(H1–H6) follow.
+(protocol functions in `devices/coyote3.py`, tested against the official
+examples) is done; the plugin itself and the hardware checks (H1–H6) follow.
 
 A device plugin `coyote3` drives a DG-LAB Coyote 3.0 ("郊狼 3.0", pulse host)
 directly over **Bluetooth LE** from the PC, with no phone or DG-LAB app in
@@ -121,9 +121,11 @@ The two-part control maps naturally onto the 0..1 level model:
   *level*; the box's carrier stays steady (the doc advises a stable frequency
   for a stable feel).
 - **Smoothing**: the guard updates at up to 20 Hz, the box takes 4 values per
-  100 ms. The 4 segments are interpolated linearly from the last value sent to
-  the newest target. Every value lies between two guard-approved levels, so
-  the soft start (S5) and the caps (S4) still hold.
+  100 ms. An increase is interpolated linearly over the 4 steps from the last
+  value sent to the newest target; every step lies between two guard-approved
+  levels, so the soft start (S5) and the caps (S4) still hold. A decrease
+  (including a stop) applies to all 4 steps at once, as the guard applies
+  decreases immediately.
 
 Howl uses the same split (its "power" is the channel strength, sent as an
 absolute value only when it changes; its patterns drive the waveform).
@@ -148,7 +150,9 @@ absolute value only when it changes; its patterns drive the waveform).
 
 `devices/coyote3.py`, registered as `coyote3`, imported in
 `devices/__init__.py`. The protocol encoding lives in pure functions
-(`encode_b0`, `encode_bf`, `encode_frequency`, `parse_b1`) so it can be tested
+(`encode_b0`, `encode_bf`, `encode_frequency`, `parse_b1`, plus
+`apply_strength`, the box's documented reaction to a strength field, for the
+fake box in tests) so it can be tested
 byte for byte against the doc's examples. BLE through
 [bleak](https://github.com/hbldh/bleak) (async, BlueZ on Linux), as an optional
 extra `coyote3 = ["bleak>=…"]`, imported lazily in `connect()` like estim2py.
@@ -230,9 +234,11 @@ Validation: 0 ≤ `strength` ≤ `strength_limit` ≤ 200 per channel, 0 ≤
 
 ## Testing
 
-- **Protocol unit tests** (`tests/test_coyote3.py`): B0 layout and nibbles,
-  frequency encoding against the doc's table, strength modes and the doc's
-  examples, BF bytes, B1 parsing, interpolation never overshooting.
+- **Protocol unit tests** (`tests/test_coyote3_protocol.py`, done): the doc's
+  complete B0 hex frames (examples No.1, 2 and 4), the app's "breathing" bytes,
+  frequency conversion lists and table, the strength examples and soft limit,
+  BF bytes, B1 parsing, rejected values, level → intensity, and interpolation
+  (ramps up within the two values, drops at once).
 - **Plugin tests with a fake BleakClient**: connect sequence (BF before any
   B0, strength zeroed and confirmed), 100 ms cadence with a fake clock, latest
   target wins, strength restore after stop, wheel B1, disconnect / write error
