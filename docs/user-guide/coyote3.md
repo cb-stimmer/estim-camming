@@ -4,9 +4,10 @@ estim-camming controls the Coyote 3.0 directly over **Bluetooth**, without the
 DG-LAB app or a phone.
 
 :::{warning}
-Support for the Coyote is **new and not yet tested on a real box**. Do the
-[first test](#first-test) without electrodes, then continue with the lowest
-strength. Read [Safety first](safety.md) before connecting the box. Keep the box
+Support for the Coyote is **new**. It was tested on a real box without
+electrodes, including that the box stops by itself when estim-camming stops
+sending. Do the [first test](#first-test) without electrodes, then continue with
+the lowest strength. Read [Safety first](safety.md) before connecting the box. Keep the box
 within reach: its own wheel and power button always work.
 :::
 

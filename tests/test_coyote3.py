@@ -86,6 +86,7 @@ class FakeCoyote:
 
     async def disconnect(self):
         self.is_connected = False
+        self.on_disconnect(self)  # bleak calls the callback for our own disconnect too
 
     # -- reading what was sent ----------------------------------------------------
 
@@ -205,6 +206,7 @@ async def test_disconnect_stops_and_closes(box):
     await frames_later()
     await device.disconnect()
     assert fake.strength == [0, 0] and not fake.is_connected
+    assert device._error is None  # our own disconnect is not "connection lost"
     await device.disconnect()  # idempotent
     with pytest.raises(DeviceError, match="not connected"):
         await device.set_levels({"A": 0.1, "B": 0.0})

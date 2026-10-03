@@ -15,7 +15,7 @@ commit.
 | [Plugin system](plugins.md) | Registries, options schemas, entry points |
 | [Platforms](platforms.md) | Platform interface, reconnects, Chaturbate, browser bridge / Stripchat, adding a site |
 | [Devices](devices.md) | Device interface, level model, adding a device |
-| [Coyote 3.0](coyote3.md) | DG-LAB Coyote 3.0 plugin over Bluetooth LE (hardware checks open) |
+| [Coyote 3.0](coyote3.md) | DG-LAB Coyote 3.0 plugin over Bluetooth LE |
 | [Rules and patterns](rules-and-patterns.md) | Tip → action mapping, waveform patterns |
 | [Safety](safety.md) | Safety invariants and how they are enforced |
 | [Overlay and control panel](overlay.md) | Web server, WebSocket protocol, OBS integration |

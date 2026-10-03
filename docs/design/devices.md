@@ -155,8 +155,8 @@ voltage) is a fixed, required setting that the box enforces as its soft limit;
 the level drives the pulse width (`min_output`..`max_output`, 0–100), in four
 25 ms steps per 100 ms frame. Stop sets the strength to 0 at once. Faults
 (connection lost, write errors and timeouts, missing confirmations) make the
-next `set_levels()` raise. The box should stop by itself within ~100 ms when
-frames stop (to be confirmed on hardware, H1). Full design, protocol summary
+next `set_levels()` raise. The box stops by itself when frames stop (verified
+on hardware, H1, 2026-10-03). Full design, protocol summary
 and hardware checklist: [Coyote 3.0](coyote3.md).
 
 ## Adding a device

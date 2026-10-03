@@ -420,6 +420,7 @@ class Coyote3Device(Device):
         self.strengths = dict.fromkeys(CHANNELS, 0)  # as last reported by the box (B1)
         self.battery: int | None = None
         self._error: str | None = None
+        self._closing = False  # our own disconnect: bleak's callback is not a fault
         self._last_write = 0.0
         opts = self.options
         self._frequency = {
@@ -442,6 +443,7 @@ class Coyote3Device(Device):
     async def connect(self) -> None:
         opts = self.options
         self._error = None
+        self._closing = False
         self._client = await self.client_factory(opts, self._on_disconnect)
         try:
             await self._setup()
@@ -522,6 +524,7 @@ class Coyote3Device(Device):
         client, self._client = self._client, None
         if client is None:
             return
+        self._closing = True
         try:
             if client.is_connected:
                 await client.disconnect()
@@ -543,6 +546,9 @@ class Coyote3Device(Device):
             log.error("%s", message)
 
     def _on_disconnect(self, _client: Any) -> None:
+        if self._closing:
+            log.info("Coyote 3.0 disconnected")
+            return
         self._fail("Coyote 3.0: Bluetooth connection lost")
         if self._awaiting is not None and not self._awaiting[1].done():
             self._awaiting[1].set_exception(DeviceError("Bluetooth connection lost"))
