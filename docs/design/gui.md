@@ -89,6 +89,24 @@ Details that matter for safety:
 - "Keep window on top" sets `WindowStaysOnTopHint`. On Wayland the compositor
   decides. KWin honours it, and other compositors may need a window rule.
 
+## Help
+
+**User guide** (main window), **Help** (rules editor) and **F1** in either
+window open the manual in the default browser with
+`QDesktopServices.openUrl` (`gui/help.py`). F1 is context-sensitive:
+`model.HELP_MAIN` (the control window page) and `model.HELP_RULES` (its
+"Editing the tip menu" section, anchor from `myst_heading_anchors`).
+`model.help_url` prefers the local build `docs/_build/html` of a source checkout
+(it matches the running code) when it has the page, and otherwise uses the
+published site `model.DOCS_URL`
+(<https://cb-stimmer.github.io/estim-camming/>). The docs are not embedded:
+QtWebEngine isn't part of `PySide6-Essentials`, and `QTextBrowser` can't render
+the Sphinx theme. If no browser starts, the status line shows the URL.
+
+The site is built and deployed by `.github/workflows/docs.yml` on every push to
+`main` (`sphinx-build -W`, then `actions/deploy-pages`). One-time setup: in the
+repository settings, Pages → Source: "GitHub Actions".
+
 ## Desktop integration
 
 - **Identity:** `QApplication.setDesktopFileName("estim-camming")` is called before

@@ -8,6 +8,8 @@ the performer a control panel with an emergency stop.
 - The **[Design documentation](design/index.md)** covers the architecture, the
   plugin interfaces, and how to add support for new sites and devices.
 
+The latest version is online at <https://cb-stimmer.github.io/estim-camming/>.
+
 ```{toctree}
 :maxdepth: 2
 :caption: User guide

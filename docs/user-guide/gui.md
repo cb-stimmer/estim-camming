@@ -50,6 +50,7 @@ Closing the window then leaves estim-camming running.
 - **Tips**: tokens this session, recent tips, and whether your platforms are
   connected.
 - **Edit rules…**: opens the rules editor (below).
+- **User guide** (or **F1**): opens this guide in your web browser.
 - **Test tip**: send a tip to try your tip menu.
 - **Engine log**: estim-camming's messages. Opens by itself if something goes
   wrong.
@@ -82,6 +83,7 @@ estim-camming runs. No need to edit `config.toml` or restart.
   writes the rules to `config.toml`, so they are there after a restart. The
   first save keeps a copy of your old file as `config.toml.bak`.
 - **Revert** throws your changes away and loads the current rules again.
+- **Help** (or **F1**) opens this section of the guide in your browser.
 
 Good to know:
 
@@ -135,6 +137,14 @@ On X11 desktops the window shows a **Keep window on top** checkbox instead.
   at the top.
 - Put the window where you can reach STOP quickly, for example between OBS and
   the chat.
+
+## The user guide
+
+**User guide** and **F1** open this guide in your default web browser. If you
+built the documentation yourself (`sphinx-build -b html docs docs/_build/html`
+in the project folder), that copy is opened, because it matches your version of
+estim-camming. Otherwise the online guide is opened:
+<https://cb-stimmer.github.io/estim-camming/>.
 
 ## If something goes wrong
 

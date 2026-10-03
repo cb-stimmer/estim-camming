@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from PySide6.QtCore import QEvent, QObject, Qt, QTimer
+from PySide6.QtGui import QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractSpinBox,
     QApplication,
@@ -31,6 +32,7 @@ from PySide6.QtWidgets import (
 from estim_camming.gui import model
 from estim_camming.gui.client import ControlClient
 from estim_camming.gui.engine import EngineProcess
+from estim_camming.gui.help import open_help
 
 RED = "#c62828"
 GREEN = "#2e7d32"
@@ -102,6 +104,7 @@ class ControlWindow(QMainWindow):
         scroll.setWidget(content)
         self.setCentralWidget(scroll)
 
+        self.help_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F1), self, self.show_help)
         self._key_filter = StopKeyFilter(self.emergency_stop, self)
         QApplication.instance().installEventFilter(self._key_filter)
 
@@ -170,10 +173,16 @@ class ControlWindow(QMainWindow):
         master.addWidget(self.scale_value)
         grid.addLayout(master)
 
+        tools = QHBoxLayout()
         self.rules_button = QPushButton("Edit rules…")
         self.rules_button.setToolTip("Edit the tip menu; saved rules apply to the next tip")
         self.rules_button.clicked.connect(self.open_rules)
-        grid.addWidget(self.rules_button)
+        self.help_button = QPushButton("User guide")
+        self.help_button.setToolTip("Open the user guide in your browser (F1)")
+        self.help_button.clicked.connect(self.show_help)
+        tools.addWidget(self.rules_button, 1)
+        tools.addWidget(self.help_button)
+        grid.addLayout(tools)
 
         self.on_top = QCheckBox("Keep window on top")
         self.on_top.toggled.connect(self._set_on_top)
@@ -290,6 +299,10 @@ class ControlWindow(QMainWindow):
 
     def emergency_stop(self) -> None:
         self.client.emergency_stop()
+
+    def show_help(self) -> None:
+        if open_help(model.HELP_MAIN) is None:
+            self.statusBar().showMessage(f"Could not open a browser. The guide: {model.DOCS_URL}")
 
     def open_rules(self) -> None:
         from estim_camming.gui.rules import RulesWindow

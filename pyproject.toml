@@ -16,6 +16,10 @@ dependencies = [
     "yarl>=1.9",
 ]
 
+[project.urls]
+Documentation = "https://cb-stimmer.github.io/estim-camming/"
+Source = "https://github.com/cb-stimmer/estim-camming"
+
 [project.optional-dependencies]
 docs = [
     "sphinx>=7.2",

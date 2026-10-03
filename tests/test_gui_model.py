@@ -80,3 +80,23 @@ def test_exec_arg_escaping():
 def test_icon_is_packaged():
     assert model.icon_path().is_file()
     assert model.icon_path().read_text().startswith("<svg")
+
+
+def test_help_url_prefers_the_local_build(tmp_path):
+    page, anchor = model.HELP_RULES
+    online = model.help_url(page, anchor)
+    assert online == model.DOCS_URL + "user-guide/gui.html#editing-the-tip-menu"
+    assert model.help_url(page, anchor, local_root=tmp_path) == online  # page not built
+    (tmp_path / "user-guide").mkdir()
+    (tmp_path / "user-guide" / "gui.html").write_text("<html></html>")
+    local = model.help_url(page, anchor, local_root=tmp_path)
+    assert local == (tmp_path / page).as_uri() + "#editing-the-tip-menu"
+    assert model.help_url(*model.HELP_MAIN, local_root=tmp_path).endswith("/gui.html")
+
+
+def test_help_anchor_exists_in_the_user_guide():
+    # The anchor comes from the heading "Editing the tip menu" (myst_heading_anchors).
+    from pathlib import Path
+
+    guide = Path(__file__).resolve().parents[1] / "docs" / "user-guide" / "gui.md"
+    assert "\n## Editing the tip menu\n" in guide.read_text()

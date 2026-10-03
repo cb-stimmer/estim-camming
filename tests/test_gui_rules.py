@@ -189,3 +189,24 @@ def test_pattern_options_reach_the_draft_preview_and_file(editor):
     rules.save_button.click()
     wait_until(app, lambda: not rules._dirty, what="saved")
     assert saved_rules(config)[0]["params"] == {"seed": 7}
+
+
+def test_help_opens_the_matching_page_in_the_browser(editor, monkeypatch):
+    from PySide6.QtGui import QDesktopServices
+
+    app, window, rules, state, config, _ = editor
+    opened = []
+    monkeypatch.setattr(
+        QDesktopServices, "openUrl", lambda url: opened.append(url.toString()) or True
+    )
+    window.help_button.click()
+    rules.help_button.click()
+    assert opened[0].endswith("user-guide/gui.html")
+    assert opened[1].endswith("user-guide/gui.html#editing-the-tip-menu")
+    assert window.help_shortcut.key().toString() == rules.help_shortcut.key().toString() == "F1"
+    rules.help_shortcut.activated.emit()  # F1 (key events need a real window manager)
+    assert len(opened) == 3
+
+    monkeypatch.setattr(QDesktopServices, "openUrl", lambda url: False)
+    rules.help_button.click()
+    assert "Could not open a browser" in rules.status.text()

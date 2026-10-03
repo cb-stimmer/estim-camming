@@ -203,3 +203,19 @@ control token because it reveals hidden rules. New `RulesChanged` event and
 `rules_revision` in the snapshot. Hand-written comments between rules disappear
 on the first save, and `config.toml.bak` keeps the original.
 
+## ADR-017: Manual on GitHub Pages, opened in the browser from the GUI
+
+**Decision.** The Sphinx docs are built and published to GitHub Pages by a
+GitHub Actions workflow on every push to `main`. The GUI opens the manual in the
+default browser (User guide / Help buttons, context-sensitive F1), preferring a
+local `docs/_build/html` build over the published site.
+**Why.** The user asked for both. A browser shows the Sphinx theme, search and
+navigation as built, and needs nothing beyond `PySide6-Essentials` (an embedded
+viewer would need QtWebEngine from `PySide6-Addons`, while `QTextBrowser` can't
+render the theme). The local build matches the running code; the published site
+works without a build.
+**Consequence.** Pages must be enabled once in the repository settings (Source:
+GitHub Actions). The published site follows `main`, so it can describe a newer
+version than an older checkout without a local build. The CI build uses
+`-W`, so a docs warning fails the deployment, as it fails a local build.
+

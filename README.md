@@ -17,7 +17,9 @@ estim-camming init          # writes config.toml (simulator + dummy device)
 estim-camming run           # open http://127.0.0.1:8765/control to arm
 ```
 
-Documentation (user guide and design) lives in [`docs/`](docs/index.md); build it with:
+Documentation (user guide and design): **<https://cb-stimmer.github.io/estim-camming/>**,
+published from [`docs/`](docs/index.md) on every push to `main`. In the desktop
+window, **User guide** or **F1** opens it. Build it locally with:
 
 ```sh
 pip install -r requirements-dev.txt

@@ -42,8 +42,9 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from estim_camming.gui import rules_model
+from estim_camming.gui import model, rules_model
 from estim_camming.gui.client import ControlClient
+from estim_camming.gui.help import open_help
 from estim_camming.rules import Rule
 from estim_camming.rules_io import check_rules, uncovered_amounts
 
@@ -873,6 +874,7 @@ class RulesWindow(QWidget):
         layout.addLayout(bottom)
 
         QShortcut(QKeySequence("Ctrl+S"), self, activated=self.save)
+        self.help_shortcut = QShortcut(QKeySequence(Qt.Key.Key_F1), self, self.show_help)
         QShortcut(QKeySequence("Ctrl+Up"), self, activated=lambda: self._move(-1))
         QShortcut(QKeySequence("Ctrl+Down"), self, activated=lambda: self._move(1))
 
@@ -899,6 +901,10 @@ class RulesWindow(QWidget):
             button.clicked.connect(slot)
             bar.addWidget(button)
             self.toolbar_buttons.append(button)
+        self.help_button = QPushButton("Help")
+        self.help_button.setToolTip("Open this part of the user guide in your browser (F1)")
+        self.help_button.clicked.connect(self.show_help)
+        bar.addWidget(self.help_button)
         bar.addStretch(1)
         bar.addWidget(QLabel("Try:"))
         self.try_tokens = _guard(QSpinBox())
@@ -911,6 +917,10 @@ class RulesWindow(QWidget):
         bar.addWidget(self.try_tokens)
         bar.addWidget(self.try_result)
         return bar
+
+    def show_help(self) -> None:
+        if open_help(model.HELP_RULES) is None:
+            self._render_status(f"Could not open a browser. The guide: {model.DOCS_URL}", RED)
 
     # -- loading -----------------------------------------------------------------
 

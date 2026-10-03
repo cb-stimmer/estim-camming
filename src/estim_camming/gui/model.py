@@ -16,6 +16,31 @@ from estim_camming.config import OverlayConfig
 APP_ID = "estim-camming"
 
 
+#: The published manual: GitHub Pages, built from docs/ on every push to main
+#: (.github/workflows/docs.yml).
+DOCS_URL = "https://cb-stimmer.github.io/estim-camming/"
+
+#: Help pages per window (path in the built docs, section anchor).
+HELP_MAIN = ("user-guide/gui.html", "")
+HELP_RULES = ("user-guide/gui.html", "editing-the-tip-menu")
+
+
+def local_docs() -> Path | None:
+    """The built docs of a source checkout (``docs/_build/html``), if there are any.
+
+    Preferred over the published site, because they match the running code."""
+    root = Path(__file__).resolve().parents[3] / "docs" / "_build" / "html"
+    return root if (root / "index.html").is_file() else None
+
+
+def help_url(page: str, anchor: str = "", local_root: Path | None = None) -> str:
+    """URL of a manual page: the local build if it has the page, else the published site."""
+    fragment = f"#{anchor}" if anchor else ""
+    if local_root is not None and (local_root / page).is_file():
+        return (local_root / page).as_uri() + fragment
+    return DOCS_URL + page + fragment
+
+
 def icon_path() -> Path:
     return Path(str(files("estim_camming.gui") / "estim-camming.svg"))
 

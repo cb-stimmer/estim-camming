@@ -37,6 +37,7 @@ python -m venv .venv && .venv/bin/pip install -r requirements-dev.txt
 .venv/bin/pytest                                   # tests
 .venv/bin/ruff check src tests && .venv/bin/ruff format src tests
 .venv/bin/sphinx-build -W --keep-going -b html docs docs/_build/html   # docs (warnings are errors)
+# docs are published to https://cb-stimmer.github.io/estim-camming/ by .github/workflows/docs.yml
 .venv/bin/estim-camming init && .venv/bin/estim-camming run            # simulator + dummy device
 .venv/bin/estim-camming check -c config.toml       # validate config without connecting
 .venv/bin/estim-camming plugins                    # list plugins and their options
