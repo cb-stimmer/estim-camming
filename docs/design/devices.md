@@ -147,6 +147,10 @@ connection's `protocol.name`.
   `ramp` work, and so does editing rules live with the rules editor. What warp
   and ramp do to the signal is still undocumented (open question above).
 
+### `coyote3` (in development)
+
+DG-LAB Coyote 3.0 over Bluetooth LE. Design: [Coyote 3.0](coyote3.md).
+
 ## Adding a device
 
 1. Create `src/estim_camming/devices/<device>.py` with a `Device` subclass

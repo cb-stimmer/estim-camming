@@ -219,3 +219,28 @@ GitHub Actions). The published site follows `main`, so it can describe a newer
 version than an older checkout without a local build. The CI build uses
 `-W`, so a docs warning fails the deployment, as it fails a local build.
 
+## ADR-018: DG-LAB Coyote 3.0 over Bluetooth LE, level drives the pulse width
+
+**Decision.** Support the Coyote 3.0 with a `coyote3` device plugin that talks
+DG-LAB's official V3 Bluetooth LE protocol directly from the PC (bleak, an
+optional extra). The channel strength (pulse voltage) is a fixed per-channel
+setting, `strength`, with no default, and the box enforces it as its BF soft
+limit, written on every connect. The 0..1 level drives the waveform intensity
+(pulse width) in four 25 ms steps per 100 ms B0 frame, interpolated between
+guard updates. The carrier frequency is fixed per channel (default 50 Hz).
+Stop and disconnect set the strength to 0 at once. Wheel changes on the box are
+kept until the next stop. Balance defaults: frequency 160, intensity 0.
+**Why.** The user has a Coyote 3.0 and a Bluetooth 5.3 PC. Direct BLE avoids
+the phone app's latency and its 50 s waveform buffer, and the protocol is
+published by DG-LAB. Waveform data is valid for only 100 ms (stated in the V2
+doc, implied for V3), so the box should stop by itself when the PC stops
+sending, a safety property the 2B lacks. The voltage/pulse-width split matches
+the 0..1 level model and the 2B's `max_output` idea, and Howl uses the same
+split. The defaults were proposed by Claude and accepted by the user; 50 Hz and
+the balance values are not DG-LAB values and will be revisited after the
+hardware checks.
+**Consequence.** Hardware checks H1–H6 must confirm the 100 ms auto-stop and
+the soft limit before the plugin is used on skin. Soft limit and balance are
+stored in the box and also apply in the DG-LAB app afterwards; the user guide
+must say so. The 2.0 model (different protocol) is not supported.
+
