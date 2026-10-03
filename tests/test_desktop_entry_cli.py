@@ -14,6 +14,7 @@ def test_install_and_remove(tmp_path, monkeypatch):
 
     assert main(["desktop-entry", "-c", str(config)]) == 0
     assert "Exec=" in entry.read_text() and icon.read_text().startswith("<svg")
+    assert f"\nIcon={icon}\n" in entry.read_text()
 
     assert main(["desktop-entry", "--remove"]) == 0
     assert not entry.exists() and not icon.exists()

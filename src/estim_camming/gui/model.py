@@ -34,9 +34,18 @@ def _exec_arg(arg: str) -> str:
     return '"' + escaped.replace("\\", "\\\\") + '"'
 
 
-def desktop_entry(config: Path, python: str = sys.executable) -> str:
-    """A freedesktop .desktop file that starts the GUI with ``config``."""
+def _string_value(value: str) -> str:
+    """Escape a value for a .desktop string key (backslash escapes)."""
+    return value.replace("\\", "\\\\")
+
+
+def desktop_entry(config: Path, python: str = sys.executable, icon: Path | None = None) -> str:
+    """A freedesktop .desktop file that starts the GUI with ``config``.
+
+    ``icon`` is the installed icon file. An absolute path works at once; a theme
+    name (the default, ``APP_ID``) needs the icon theme cache to pick it up."""
     config = config.resolve()
+    icon_value = _string_value(str(icon.resolve())) if icon is not None else APP_ID
     args = [python, "-m", "estim_camming", "gui", "-c", str(config)]
     exec_line = " ".join(_exec_arg(a) for a in args)
     return (
@@ -45,8 +54,8 @@ def desktop_entry(config: Path, python: str = sys.executable) -> str:
         "Name=estim-camming\n"
         "Comment=Tip-controlled device control panel\n"
         f"Exec={exec_line}\n"
-        f"Path={str(config.parent).replace(chr(92), chr(92) * 2)}\n"
-        f"Icon={APP_ID}\n"
+        f"Path={_string_value(str(config.parent))}\n"
+        f"Icon={icon_value}\n"
         "Terminal=false\n"
         "Categories=AudioVideo;\n"
         f"StartupWMClass={APP_ID}\n"

@@ -148,8 +148,9 @@ def cmd_desktop_entry(args: argparse.Namespace) -> int:
     load_config(config)  # refuse to install an entry for a broken config
     apps.mkdir(parents=True, exist_ok=True)
     icons.mkdir(parents=True, exist_ok=True)
-    entry.write_text(model.desktop_entry(config))
     shutil.copyfile(model.icon_path(), icon)
+    # Absolute icon path: shows at once, without waiting for the icon theme cache.
+    entry.write_text(model.desktop_entry(config, icon=icon))
     print(f"wrote {entry}")
     print(f"wrote {icon}")
     print("estim-camming now appears in the application menu (it may take a moment).")

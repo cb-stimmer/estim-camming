@@ -61,6 +61,16 @@ def test_desktop_entry_quotes_paths_for_the_exec_key(tmp_path):
     assert lines["Path"] == str(config.parent.resolve())
 
 
+def test_desktop_entry_can_point_at_the_icon_file(tmp_path):
+    config = tmp_path / "config.toml"
+    config.write_text("")
+    icon = tmp_path / "icons" / "estim-camming.svg"
+    entry = model.desktop_entry(config, python="/venv/bin/python", icon=icon)
+    lines = dict(line.split("=", 1) for line in entry.splitlines()[1:])
+    assert lines["Icon"] == str(icon.resolve())
+    assert lines["StartupWMClass"] == model.APP_ID
+
+
 def test_exec_arg_escaping():
     assert model._exec_arg("plain/path") == "plain/path"
     assert model._exec_arg("50%") == "50%%"

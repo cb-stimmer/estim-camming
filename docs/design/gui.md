@@ -102,7 +102,10 @@ Details that matter for safety:
   `$XDG_DATA_HOME/applications/estim-camming.desktop` (Exec = this Python
   interpreter `-m estim_camming gui -c <absolute config>`, `Path=` the config
   directory, `StartupWMClass=estim-camming`) and
-  `icons/hicolor/scalable/apps/estim-camming.svg`. It validates the config
+  `icons/hicolor/scalable/apps/estim-camming.svg`. `Icon=` is the absolute path
+  of that installed SVG, not the theme name: KDE caches icon-theme lookups, and
+  a user `hicolor` directory often has no `index.theme`, so a theme icon added
+  later may not show until a re-login. It validates the config
   first. Exec arguments are quoted per the Desktop Entry spec (double quotes,
   escaped `"` `` ` `` `$` `\`, `%%`). That was verified with GLib's parser and
   `desktop-file-validate`. It is never run implicitly, since it writes outside
