@@ -105,7 +105,7 @@ produces up to 20 updates/s per channel. Queueing every update would make the
 box lag further and further behind; coalescing keeps it current.
 **Consequence.** estim2py 0.3.0 needs Python 3.13+, so the extra pins 0.2.2 on
 older Pythons (same API; we clear the serial input buffer ourselves). The core
-stays on 3.11+. Faults surface on the next `set_levels()` rather than inside it,
+stays on 3.11+. (Superseded for the library version by ADR-014.) Faults surface on the next `set_levels()` rather than inside it,
 bounded by `stall_timeout`.
 
 ## ADR-012: Actions carry per-channel outputs
@@ -138,3 +138,39 @@ not in `PySide6-Essentials`.
 **Consequence.** The display updates at about 4 Hz (commands are immediate). The
 GUI needs the overlay server enabled. PySide6 is an optional extra (`[gui]`,
 about 230 MB).
+
+## ADR-014: estim2py from the user's fork, modes resolved per firmware
+
+**Decision.** The `estim2b` extra installs estim2py 0.4.1 from the user's fork
+(`git+https://github.com/cb-stimmer/estim2py@v0.4.1`) instead of PyPI's
+0.2.2/0.3.0. The plugin keeps the 2.106 and beta mode tables and picks the mode
+number for the firmware the library detects.
+**Why.** The fork works on Python 3.12 again and adds the protocols of the
+2B beta firmwares (2.119B, 2.120B+), which have longer status lines and
+renumbered modes. Sending a 2.106 mode number to a beta box would select a
+different mode (12 is `step` on 2.106 but `cycle` on beta).
+**Consequence.** The extra is a direct git reference, so the package can't be
+uploaded to PyPI as is (`allow-direct-references`), and installing it needs git
+and network access to GitHub. Python 3.11 installs the core without estim2py;
+the 2B device then reports the missing library. Beta-only features (dynamic
+power, bias, warp, ramp, output map) are not exposed yet (dynamic power, warp
+and ramp: see ADR-015).
+
+## ADR-015: 2B beta options: dynamic power, bias, warp and ramp
+
+**Decision.** The `estim2b` device gets `power = "dynamic"` with an optional
+`bias` (`A`, `B`, `average`, `max`), `warp` (×1–×32) and `ramp` (×1–×4). They are set once at connect and checked in the status reply,
+like power and mode. A configured option the firmware lacks stops the connect
+after `kill`. Unset `warp`/`ramp` leave the box's setting alone. The default
+power stays `low`.
+**Why.** The user asked for them. The fork documents the commands (`Y`, `Qn`,
+`Wn`, `Rn`) and which firmwares support them. Dynamic power merges low and high
+based on the bias, and `Y` resets the bias to a raw 0 that means `max` on
+2.120B+ but `A` on 2.119B. Setting the bias by name gives the same strength on
+both firmwares. Warp and ramp take the multipliers
+shown on the box rather than raw indices, so a config value means the same thing
+as the box's display.
+**Consequence.** Dynamic power can reach high-power strength, so the docs tell
+users to treat it like `high`. `bias` without dynamic power is a config error.
+What warp and ramp do exactly is still an open question in
+[devices.md](devices.md).

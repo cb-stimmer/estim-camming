@@ -14,6 +14,7 @@ A `rules.Rule` is one entry of the tip menu, configured as a `[[rules]]` table.
 | `params` | table | Pattern options, validated against the pattern's `Options` |
 | `intensity` | 0..1? | Relative intensity; 1.0 = the configured safety maximum. Optional if every channel sets its own |
 | `duration` | s > 0 | Base duration |
+| `duration_max` | s ≥ `duration`? | If set, the base duration is drawn uniformly from `duration`…`duration_max` per tip |
 | `duration_per_token` | s ≥ 0 | Extra seconds per token in the tip |
 | `channels` | list or table? | Channels to drive; default all device channels. As a table: per-channel settings (below) |
 | `show_in_menu` | bool | Whether the overlay lists it (hidden "secret" rules) |
@@ -58,11 +59,21 @@ produces no output.
 `RuleEngine.action_for(tip)` creates an immutable `Action`:
 
 ```text
-duration = min(rule.duration + rule.duration_per_token * tip.tokens, safety.max_action_seconds)
+base     = uniform(rule.duration, rule.duration_max) if rule.duration_max else rule.duration
+duration = min(base + rule.duration_per_token * tip.tokens, safety.max_action_seconds)
 outputs  = rule.outputs(device.channels)   # one ChannelOutput per driven channel
 ```
 
-`Action.channels` is a convenience property listing the driven channels.
+`Action.channels` is a convenience property listing the driven channels. A random
+duration is drawn once, when the action is created, so the queue, overlay and
+GUI know the exact time as soon as the tip is queued. The tip menu
+(`RuleEngine.menu()`) reports `duration` and `duration_max`. The engine takes an
+optional `random.Random` so tests are deterministic.
+
+`random_level` draws its level in `__init__`. The scheduler creates one pattern
+instance per channel output per action, so each tip, and each channel of a
+per-channel rule, gets its own level. The randomness is within the configured
+`low`…`high`, and everything still passes through the safety guard.
 
 ### Validation
 
@@ -113,6 +124,7 @@ example a random walk). Output is clamped to 0..1 by the scheduler anyway.
 | `pulse` | `period` (1.0 s), `duty` (0.5) | square wave, on for `duty` of each period |
 | `ramp` | `start` (0.0), `end` (1.0) | linear from start to end over the action |
 | `wave` | `period` (2.0 s), `low` (0.2), `high` (1.0) | raised cosine between low and high, starting at low |
+| `random_level` | `low` (0.2), `high` (1.0), `seed` (none) | one level drawn uniformly from low…high when the action starts, held for the whole action |
 
 Adding a pattern: subclass `Pattern` in `patterns.py` (or in a plugin package
 using the `estim_camming.patterns` entry-point group), register it, give it an

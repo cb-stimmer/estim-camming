@@ -66,7 +66,7 @@ async def test_control_api(config_data):
         assert (await client.post("/api/stop", json={}, headers=headers)).status == 200
         assert not app.guard.armed
         state = await (await client.get("/api/state")).json()
-        assert state["armed"] is False and len(state["menu"]) == 5
+        assert state["armed"] is False and len(state["menu"]) == 6
         assert (await client.get("/overlay")).status == 200
         assert (await client.get("/static/common.js")).status == 200
         assert (await client.get("/static/..%2Fserver.py")).status == 404

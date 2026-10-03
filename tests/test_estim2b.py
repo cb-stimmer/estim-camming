@@ -12,14 +12,42 @@ from estim_camming.events import SafetyStateChanged
 from estim_camming.plugins import DEVICES, PluginError
 from estim_camming.safety import SafetyConfig, SafetyGuard
 
+#: Optional features per firmware, as in estim2py's protocol classes.
+FEATURES = {
+    "2.106": set(),
+    "2.119B": {"dynamic", "bias", "output_map", "step", "version"},
+    "2.120B": {"dynamic", "bias", "output_map", "step", "version", "warp", "ramp"},
+}
+
+#: Bias numbering per firmware (Estim2pyBias value -> number), as in estim2py.
+BIAS_CODES = {
+    "2.119B": {"A": 0, "B": 1, "average": 2, "max": 3},
+    "2.120B": {"max": 0, "A": 1, "B": 2, "average": 3},
+}
+
 
 class FakeBox:
     """Mimics estim2py.Estim2pyConnection: levels are reported doubled, and
-    changing power range or mode resets A/B to 0 (as on the real box)."""
+    changing power range or mode resets A/B to 0 (as on the real box).
+    ``firmware`` sets ``protocol.name``; None leaves out ``protocol``."""
+
+    firmware: str | None = None
 
     def __init__(self, port, timeout, delay):
         self.port, self.timeout, self.delay = port, timeout, delay
         self.state = {"a": 0, "b": 0, "c": 100, "d": 100, "mode": 0, "power": "L"}
+        if self.firmware is not None:
+            features = FEATURES[self.firmware]
+            codes = BIAS_CODES.get(self.firmware, {})
+            self.protocol = SimpleNamespace(
+                name=self.firmware,
+                supports=features.__contains__,
+                bias_code=lambda bias: codes[bias.value],
+            )
+            if "bias" in features:
+                self.state["bias"] = 0
+            if "warp" in features:
+                self.state.update(warp=0, ramp=0)
         self.calls = []
         self.fail_on = None  # method name that raises
         self.block = None  # threading.Event: set_channel waits on it
@@ -57,6 +85,26 @@ class FakeBox:
     def high(self):
         self._record("high")
         self.state.update(a=0, b=0, power="H")
+        return self._status()
+
+    def dynamic(self):
+        self._record("dynamic")
+        self.state.update(a=0, b=0, power="D", bias=0)
+        return self._status()
+
+    def set_bias(self, bias):
+        self._record("set_bias", bias.value)
+        self.state["bias"] = self.protocol.bias_code(bias)
+        return self._status()
+
+    def set_warp(self, warp):
+        self._record("set_warp", warp)
+        self.state["warp"] = warp
+        return self._status()
+
+    def set_ramp(self, ramp):
+        self._record("set_ramp", ramp)
+        self.state["ramp"] = ramp
         return self._status()
 
     def set_mode(self, mode):
@@ -241,6 +289,14 @@ async def test_missing_library_gives_a_clear_error(monkeypatch):
     [
         {"mode": "nope"},
         {"mode": 42},
+        {"mode": 17},
+        {"warp": 3},
+        {"warp": 64},
+        {"ramp": 0},
+        {"ramp": 5},
+        {"bias": "max"},
+        {"power": "high", "bias": "A"},
+        {"power": "dynamic", "bias": "middle"},
         {"param_c": 1},
         {"param_d": 0},
         {"power": "max"},
@@ -255,9 +311,38 @@ def test_invalid_options(options):
 
 def test_mode_by_number_and_level_mapping():
     device = make(mode=9, max_output=40)
-    assert device.mode_id == 9
+    assert device.mode_id("2.106") == 9 and device.mode_id("2.120B") == 9
     assert [device.to_box(x, "A") for x in (-1, 0, 0.5, 1, 2)] == [0, 0, 20, 40, 40]
-    assert make(mode="Continuous").mode_id == 2
+    assert make(mode="Continuous").mode_id("2.106") == 2
+
+
+def test_mode_names_are_numbered_per_firmware():
+    step = make(mode="step")
+    assert step.mode_id("2.106") == 12
+    assert step.mode_id("2.119B") == step.mode_id("2.120B") == 15
+    assert make(mode="flo").mode_id("2.120B") == 3
+    with pytest.raises(DeviceError, match="no mode 'flo'"):
+        make(mode="flo").mode_id("2.106")
+    with pytest.raises(DeviceError, match="no mode number 16"):
+        make(mode=16).mode_id("2.106")
+
+
+@pytest.mark.parametrize("firmware", ["2.119B", "2.120B"])
+async def test_beta_firmware_gets_its_own_mode_numbers(box, monkeypatch, firmware):
+    monkeypatch.setattr(FakeBox, "firmware", firmware)
+    device = make(mode="wave")
+    await device.connect()
+    assert ("set_mode", 6) in box[0].calls and box[0].state["mode"] == 6
+    await device.disconnect()
+
+
+async def test_mode_missing_on_legacy_firmware_is_refused(box, monkeypatch):
+    monkeypatch.setattr(FakeBox, "firmware", "2.106")
+    device = make(mode="twist")
+    with pytest.raises(DeviceError, match="2.106 has no mode 'twist'"):
+        await device.connect()
+    assert box[0].calls[-1] == ("kill",)
+    assert not any(call[0] == "set_mode" for call in box[0].calls)
 
 
 def test_min_output_maps_non_zero_levels_above_the_threshold():
@@ -300,3 +385,80 @@ async def test_min_output_reaches_the_box_and_stop_still_zeroes(box):
     await device.stop()
     assert (fake.state["a"], fake.state["b"]) == (0, 0)
     await device.disconnect()
+
+
+async def test_dynamic_power_warp_and_ramp_on_beta_firmware(box, monkeypatch):
+    monkeypatch.setattr(FakeBox, "firmware", "2.120B")
+    device = make(power="dynamic", mode="continuous", warp=8, ramp=2)
+    await device.connect()
+    fake = box[0]
+    assert fake.calls[1:5] == [
+        ("kill",),
+        ("dynamic",),
+        ("set_mode", 2),
+        ("set_warp", 3),
+    ]
+    assert ("set_ramp", 1) in fake.calls
+    assert (fake.state["power"], fake.state["warp"], fake.state["ramp"]) == ("D", 3, 1)
+    assert (fake.state["a"], fake.state["b"]) == (0, 0)
+    await device.disconnect()
+
+
+async def test_warp_and_ramp_are_left_alone_when_unset(box, monkeypatch):
+    monkeypatch.setattr(FakeBox, "firmware", "2.120B")
+    device = make()
+    await device.connect()
+    assert not any(call[0] in ("dynamic", "set_warp", "set_ramp") for call in box[0].calls)
+    await device.disconnect()
+
+
+@pytest.mark.parametrize(
+    ("firmware", "options", "message"),
+    [
+        ("2.106", {"power": "dynamic"}, "2.106 does not support power = 'dynamic'"),
+        (None, {"power": "dynamic"}, "does not support power = 'dynamic'"),
+        ("2.119B", {"warp": 2, "ramp": 2}, "2.119B does not support warp, ramp"),
+    ],
+)
+async def test_features_missing_on_the_firmware_are_refused(
+    box, monkeypatch, firmware, options, message
+):
+    monkeypatch.setattr(FakeBox, "firmware", firmware)
+    device = make(**options)
+    with pytest.raises(DeviceError, match=message):
+        await device.connect()
+    calls = [call[0] for call in box[0].calls]
+    assert calls[-1] == "kill"
+    assert not {"low", "high", "dynamic", "set_mode", "set_warp", "set_ramp"} & set(calls)
+
+
+async def test_refuses_box_that_ignores_warp(box, monkeypatch):
+    monkeypatch.setattr(FakeBox, "firmware", "2.120B")
+    monkeypatch.setattr(FakeBox, "set_warp", lambda self, warp: self._status())
+    device = make(warp=4)
+    with pytest.raises(DeviceError, match="did not accept"):
+        await device.connect()
+    assert box[0].calls[-1] == ("kill",)
+
+
+@pytest.mark.parametrize(("firmware", "code"), [("2.119B", 3), ("2.120B", 0)])
+async def test_dynamic_bias_uses_the_firmware_numbering(box, monkeypatch, firmware, code):
+    pytest.importorskip("estim2py")
+    monkeypatch.setattr(FakeBox, "firmware", firmware)
+    device = make(power="dynamic", bias="max")
+    await device.connect()
+    calls = [call[0] for call in box[0].calls]
+    # Switching to dynamic resets the bias, so it is set afterwards.
+    assert calls.index("dynamic") < calls.index("set_bias")
+    assert ("set_bias", "max") in box[0].calls and box[0].state["bias"] == code
+    await device.disconnect()
+
+
+async def test_refuses_box_that_ignores_bias(box, monkeypatch):
+    pytest.importorskip("estim2py")
+    monkeypatch.setattr(FakeBox, "firmware", "2.120B")
+    monkeypatch.setattr(FakeBox, "set_bias", lambda self, bias: self._status())
+    device = make(power="dynamic", bias="A")
+    with pytest.raises(DeviceError, match="did not accept"):
+        await device.connect()
+    assert box[0].calls[-1] == ("kill",)

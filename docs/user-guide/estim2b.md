@@ -1,8 +1,9 @@
 # E-Stim Systems 2B setup
 
 estim-camming controls the 2B through its serial link (the "link cable" or USB
-serial adapter), using the [estim2py](https://github.com/sissybecky/estim2py)
-library.
+serial adapter), using the [estim2py](https://github.com/cb-stimmer/estim2py) library. It works
+with the original firmware (2.106) and the newer beta firmwares (2.119B, 2.120B
+and later). estim-camming detects the firmware when it connects.
 
 :::{warning}
 Read [Safety first](safety.md) before connecting the 2B. Start with the box in
@@ -19,9 +20,8 @@ off on the box itself.
   .venv/bin/pip install -e '.[estim2b]'
   ```
 
-  On Python 3.13 or newer this installs estim2py 0.3.0. On older Pythons (such
-  as 3.12) it installs 0.2.2, because 0.3.0 only works on 3.13, even though its
-  package information says otherwise. Both versions work with estim-camming.
+  This downloads estim2py 0.4.1 from GitHub, so it needs `git` and an internet
+  connection. It needs Python 3.12 or newer.
 
 - **Serial port access (Linux).** Your user must be in the `dialout` group:
   `sudo usermod -aG dialout $USER`, then log out and back in.
@@ -39,21 +39,27 @@ when you plug the cable in is the one to use.
 type = "estim2b"
 [device.options]
 port = "/dev/ttyUSB0"
-power = "low"          # "low" or "high"
+power = "low"          # "low", "high" or "dynamic" (beta firmware)
+# bias = "average"     # dynamic power only: "A", "B", "average" or "max"
 mode = "continuous"    # see the table below
 min_output = 10        # box level for the weakest output you can feel (0 = off stays off)
 max_output = 40        # box level (0-100) at full scale: a hard ceiling
 # param_c = 50         # mode parameter C (usually speed), 2-100
 # param_d = 50         # mode parameter D (usually feel), 1-100
+# warp = 1             # time warp x1, x2, x4, x8, x16 or x32 (firmware 2.120B+)
+# ramp = 1             # ramp step x1-x4 (firmware 2.120B+)
 ```
 
 | Option | Default | Meaning |
 |---|---|---|
 | `port` | (required) | Serial port of the link cable |
-| `power` | `low` | Power range of the box. `high` is much stronger |
-| `mode` | `continuous` | 2B mode, by name or number |
+| `power` | `low` | Power range of the box: `low`, `high` (much stronger) or `dynamic` (beta firmware 2.119B+: merges low and high based on `bias`) |
+| `bias` | box default | Dynamic bias: `A`, `B`, `average` or `max`. Only with `power = "dynamic"` |
+| `mode` | `continuous` | 2B mode, by name (recommended) or number |
 | `param_c` | box default | Mode parameter C (usually speed), 2–100 |
 | `param_d` | box default | Mode parameter D (usually feel), 1–100 |
+| `warp` | box setting | Time warp: `1`, `2`, `4`, `8`, `16` or `32` (×1–×32). Firmware 2.120B or newer |
+| `ramp` | box setting | Ramp step: `1`–`4` (×1–×4). Firmware 2.120B or newer |
 | `min_output` | `0` | Box level for the lowest non-zero output. Off (0) always stays 0 |
 | `max_output` | `100` | Box level sent at full scale. estim-camming never sends more than this |
 | `serial_timeout` | `2` | Seconds to wait for the box to answer |
@@ -90,26 +96,49 @@ panel show `level`, not the box value.
 
 ### Modes
 
-| Name | No. | Name | No. |
-|---|---|---|---|
-| `pulse` | 0 | `squeeze` | 7 |
-| `bounce` | 1 | `milk` | 8 |
-| `continuous` | 2 | `throb` | 9 |
-| `asplit` | 3 | `thrust` | 10 |
-| `bsplit` | 4 | `random` | 11 |
-| `wave` | 5 | `step` | 12 |
-| `waterfall` | 6 | `training` | 13 |
+Use the mode **name**: estim-camming sends the right number for your box's
+firmware. The beta firmwares number the modes differently, so a mode number
+means a different mode depending on the firmware.
+
+| Name | No. (2.106) | No. (beta firmware) |
+|---|---|---|
+| `pulse` | 0 | 0 |
+| `bounce` | 1 | 1 |
+| `continuous` | 2 | 2 |
+| `flo` | – | 3 |
+| `asplit` | 3 | 4 |
+| `bsplit` | 4 | 5 |
+| `wave` | 5 | 6 |
+| `waterfall` | 6 | 7 |
+| `squeeze` | 7 | 8 |
+| `milk` | 8 | 9 |
+| `throb` | 9 | 10 |
+| `thrust` | 10 | 11 |
+| `cycle` | – | 12 |
+| `twist` | – | 13 |
+| `random` | 11 | 14 |
+| `step` | 12 | 15 |
+| `training` | 13 | 16 |
+
+`flo`, `cycle` and `twist` only exist on the beta firmwares. If you choose one
+on a 2.106 box, estim-camming refuses to start the device and says so in the log.
 
 estim-camming's own patterns (pulse, wave, ...) shape the A/B levels over time.
 The 2B's mode shapes the signal inside the box. `continuous` gives the most
 direct control. Other modes combine both effects.
+
+:::{warning}
+**Dynamic** power merges the low and high ranges based on the dynamic bias, so
+it can get as strong as `high`. Treat it like `high`: start with a low
+`max_output` and test without electrodes first.
+:::
 
 ## First test
 
 1. Run `estim-camming check`. It validates the config without touching the box.
 2. Turn the box on, with the electrodes **not** attached.
 3. Run `estim-camming run`. The log should show
-   `2B connected on /dev/ttyUSB0: firmware …, battery …`. At start-up the box is
+   `2B connected on /dev/ttyUSB0: firmware … (protocol …), battery …`. At start-up the box is
    set to your power range and mode, and A/B are set to 0.
 4. Open the control panel, arm, and send a small test tip. The A/B display on
    the box should follow the output bars in the control panel. Press **STOP**
@@ -126,5 +155,11 @@ direct control. Other modes combine both effects.
   arm again.
 - Changing the power range or mode on the box itself resets A/B to 0. Adjusting
   A/B on the box works, but estim-camming overwrites it on the next change.
-- Channel link (`link`/`unlink`) is not used, because it doesn't work reliably
-  in estim2py 0.3.0.
+- `dynamic` power, `warp` and `ramp` only work on the beta firmwares (see the
+  table above). If your box's firmware doesn't have them, estim-camming refuses
+  to start the device and says so in the log. When `warp` or `ramp` is not set,
+  the box keeps whatever it is set to.
+- Switching to dynamic power resets the box's bias, and the default differs per
+  firmware (`max` on 2.120B and newer, `A` on 2.119B). Set `bias` to get the same
+  behaviour on every box.
+- Channel link and output map are not used.

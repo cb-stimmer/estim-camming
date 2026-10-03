@@ -21,11 +21,10 @@ docs = [
     "myst-parser>=2.0",
     "furo>=2024.1",
 ]
-# E-Stim Systems 2B (serial). estim2py 0.3.0 needs Python 3.13+ (its metadata
-# wrongly says 3.8+), so older Pythons get 0.2.2, which has the same API.
+# E-Stim Systems 2B (serial). Fork of estim2py with the beta firmware protocols
+# (2.119B, 2.120B+); needs Python 3.12+. Not on PyPI, so installed from git.
 estim2b = [
-    "estim2py==0.2.2; python_version < '3.13'",
-    "estim2py>=0.3.0; python_version >= '3.13'",
+    "estim2py @ git+https://github.com/cb-stimmer/estim2py@v0.4.1 ; python_version >= '3.12'",
 ]
 # Desktop control window (estim-camming gui).
 gui = [
@@ -43,6 +42,9 @@ estim-camming = "estim_camming.cli:main"
 # Third-party plugins register themselves in these entry-point groups:
 #   estim_camming.platforms, estim_camming.devices, estim_camming.patterns
 # See docs/design/plugins.md.
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/estim_camming"]

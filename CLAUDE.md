@@ -60,7 +60,7 @@ src/estim_camming/
   platforms/      base.py, simulator.py, chaturbate.py (Events API),
                   bridge.py + bridge.user.js (userscript bridge: websocket/dom modes),
                   stripchat.py (bridge + WebSocket frame parser)
-  devices/        base.py, dummy.py, estim2b.py (E-Stim 2B via estim2py: 0.2.2 on Py<3.13, else 0.3)
+  devices/        base.py, dummy.py, estim2b.py (E-Stim 2B via estim2py 0.4.1 fork from git; 2.106 + beta firmware)
   overlay/        server.py (aiohttp), static/ (overlay.html, control.html, common.js)
   gui/            PySide6 control window: client of the control API; engine as child process
   example_config.toml   shipped example; `init` writes it; a test keeps it valid

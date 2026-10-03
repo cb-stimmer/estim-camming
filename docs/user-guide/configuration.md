@@ -113,6 +113,7 @@ pattern = "wave"
 params = { period = 3.0, low = 0.2, high = 1.0 }
 intensity = 0.5              # 0..1, relative to safety.max_level
 duration = 10                # seconds
+# duration_max = 20         # random duration between duration and duration_max
 # duration_per_token = 0.1   # extra seconds per token tipped
 # channels = ["A"]           # default: all channels
 # show_in_menu = false       # hidden "secret" rule
@@ -169,6 +170,34 @@ not the rule's. `estim-camming check` lists what each channel does for every rul
 | `pulse` | `period` (s, 1.0), `duty` (0..1, 0.5) | on/off beats |
 | `ramp` | `start` (0.0), `end` (1.0) | builds up (or down) over the action |
 | `wave` | `period` (s, 2.0), `low` (0.2), `high` (1.0) | smooth waves |
+| `random_level` | `low` (0.2), `high` (1.0) | a surprise: one random strength per tip, steady while it plays |
+
+### Surprise rules
+
+Two settings make a tip unpredictable:
+
+- `pattern = "random_level"` picks a random strength between `low` and `high`
+  for each tip and keeps it steady. With per-channel settings, A and B each get
+  their own random strength.
+- `duration_max` makes the tip last a random time between `duration` and
+  `duration_max` seconds. The control panel and window show the actual time
+  once the tip is queued.
+
+```toml
+[[rules]]
+name = "surprise"
+label = "Surprise!"
+tokens = 77
+pattern = "random_level"
+params = { low = 0.3, high = 0.9 }
+intensity = 1.0
+duration = 5
+duration_max = 30
+```
+
+Both stay within your limits: strength is still scaled by `safety.max_level`
+(and the master slider), and no tip runs longer than
+`safety.max_action_seconds`.
 
 ## `[safety]`
 

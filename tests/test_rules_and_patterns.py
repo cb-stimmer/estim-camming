@@ -1,3 +1,5 @@
+import random
+
 import pytest
 from pydantic import ValidationError
 
@@ -71,7 +73,7 @@ def test_engine_rejects_unknown_pattern_params_and_channels():
         engine({"name": "r", "tokens": 1, "channels": ["C"], "intensity": 1, "duration": 1})
 
 
-@pytest.mark.parametrize("name", ["constant", "pulse", "ramp", "wave"])
+@pytest.mark.parametrize("name", ["constant", "pulse", "ramp", "wave", "random_level"])
 def test_patterns_stay_in_range(name):
     pattern = PATTERNS.create(name)
     for i in range(200):
@@ -145,3 +147,61 @@ def test_engine_validates_per_channel_patterns_and_channels():
         )
     with pytest.raises(PluginError, match="unknown channel"):
         engine({"name": "r", "tokens": 1, "duration": 1, "channels": {"C": {"intensity": 1}}})
+
+
+def test_random_level_holds_one_level_within_range():
+    levels = set()
+    for seed in range(50):
+        pattern = PATTERNS.create("random_level", {"low": 0.3, "high": 0.6, "seed": seed})
+        level = pattern.level(0, 10)
+        assert 0.3 <= level <= 0.6
+        assert all(pattern.level(t, 10) == level for t in (0.5, 3, 9.9))  # steady
+        levels.add(level)
+    assert len(levels) > 40  # different per tip
+    assert PATTERNS.create("random_level", {"low": 0.5, "high": 0.5}).level(0, 1) == 0.5
+    with pytest.raises(PluginError):
+        PATTERNS.create("random_level", {"low": 0.8, "high": 0.2})
+
+
+def test_random_level_per_channel_draws_independently():
+    e = engine(
+        {
+            "name": "r",
+            "tokens": 1,
+            "pattern": "random_level",
+            "intensity": 1,
+            "duration": 1,
+        }
+    )
+    a, b = (PATTERNS.create(o.pattern, o.params) for o in e.action_for(tip(1)).outputs)
+    assert a.level(0, 1) != b.level(0, 1)
+
+
+def test_random_duration_between_duration_and_duration_max():
+    rule = {"name": "r", "min_tokens": 1, "intensity": 1, "duration": 5, "duration_max": 15}
+    e = RuleEngine([Rule(**rule)], ("A", "B"), 60, rng=random.Random(1))
+    durations = [e.action_for(tip(1)).duration for _ in range(200)]
+    assert all(5 <= d <= 15 for d in durations)
+    assert max(durations) - min(durations) > 8  # actually random
+    menu = e.menu()[0]
+    assert (menu["duration"], menu["duration_max"]) == (5, 15)
+
+
+def test_random_duration_still_capped_and_adds_per_token_time():
+    rule = {
+        "name": "r",
+        "min_tokens": 1,
+        "intensity": 1,
+        "duration": 10,
+        "duration_max": 20,
+        "duration_per_token": 1,
+    }
+    e = RuleEngine([Rule(**rule)], ("A", "B"), 25, rng=random.Random(2))
+    durations = [e.action_for(tip(10)).duration for _ in range(100)]
+    assert all(20 <= d <= 25 for d in durations)  # 10..20 + 10 tokens, capped at 25
+    assert 25 in durations
+
+
+def test_duration_max_must_not_be_below_duration():
+    with pytest.raises(ValidationError, match="duration_max"):
+        Rule(name="x", tokens=1, intensity=1, duration=10, duration_max=5)

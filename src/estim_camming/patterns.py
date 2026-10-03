@@ -8,6 +8,7 @@ multiplies by the action intensity. Add new patterns by subclassing
 from __future__ import annotations
 
 import math
+import random
 from abc import abstractmethod
 
 from pydantic import Field, model_validator
@@ -73,3 +74,31 @@ class Wave(Pattern):
     def level(self, t: float, duration: float) -> float:
         phase = 0.5 - 0.5 * math.cos(2 * math.pi * t / self.options.period)
         return self.options.low + (self.options.high - self.options.low) * phase
+
+
+@PATTERNS.register("random_level")
+class RandomLevel(Pattern):
+    """One random level between ``low`` and ``high``, held for the whole action.
+
+    Each action (and each channel of a per-channel rule) draws its own level, so
+    every tip feels different but steady.
+    """
+
+    class Options(PluginOptions):
+        low: float = Field(0.2, ge=0, le=1)
+        high: float = Field(1.0, ge=0, le=1)
+        seed: int | None = Field(None, description="Fixed seed (for testing).")
+
+        @model_validator(mode="after")
+        def _check_range(self):
+            if self.low > self.high:
+                raise ValueError("low must be <= high")
+            return self
+
+    def __init__(self, options=None) -> None:
+        super().__init__(options)
+        rng = random.Random(self.options.seed)
+        self._level = rng.uniform(self.options.low, self.options.high)
+
+    def level(self, t: float, duration: float) -> float:
+        return self._level

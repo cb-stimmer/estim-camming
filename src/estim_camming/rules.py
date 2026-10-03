@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 from collections.abc import Sequence
 from typing import Any
 
@@ -40,6 +41,9 @@ class Rule(BaseModel):
         None, ge=0, le=1, description="Relative intensity; per channel via 'channels'."
     )
     duration: float = Field(gt=0, description="Seconds.")
+    duration_max: float | None = Field(
+        None, gt=0, description="If set, the duration is random between duration and this."
+    )
     duration_per_token: float = Field(0.0, ge=0, description="Extra seconds per token tipped.")
     channels: list[str] | dict[str, ChannelSpec] | None = Field(
         None,
@@ -58,6 +62,8 @@ class Rule(BaseModel):
             raise ValueError("one of 'tokens' or 'min_tokens' is required")
         if self.max_tokens is not None and self.max_tokens < self.min_tokens:
             raise ValueError("max_tokens must be >= min_tokens")
+        if self.duration_max is not None and self.duration_max < self.duration:
+            raise ValueError("duration_max must be >= duration")
         if isinstance(self.channels, list) and len(set(self.channels)) != len(self.channels):
             raise ValueError("channels contains duplicates")
         if self.channels is not None and len(self.channels) == 0:
@@ -107,8 +113,10 @@ class RuleEngine:
         rules: Sequence[Rule],
         device_channels: Sequence[str],
         max_action_seconds: float,
+        rng: random.Random | None = None,
     ) -> None:
         self.rules = list(rules)
+        self._rng = rng or random.Random()
         self.device_channels = tuple(device_channels)
         self.max_action_seconds = max_action_seconds
         self._validate()
@@ -136,7 +144,10 @@ class RuleEngine:
         rule = self.match(tip.tokens)
         if rule is None:
             return None
-        duration = rule.duration + rule.duration_per_token * tip.tokens
+        base = rule.duration
+        if rule.duration_max is not None:
+            base = self._rng.uniform(rule.duration, rule.duration_max)
+        duration = base + rule.duration_per_token * tip.tokens
         return Action(
             label=rule.display_label,
             duration=min(duration, self.max_action_seconds),
@@ -153,6 +164,7 @@ class RuleEngine:
                 "min_tokens": r.min_tokens,
                 "max_tokens": r.max_tokens,
                 "duration": r.duration,
+                "duration_max": r.duration_max,
             }
             for r in self.rules
             if r.show_in_menu
