@@ -1,8 +1,8 @@
 # DG-LAB Coyote 3.0 device
 
 **Status: accepted ([ADR-018](decisions.md)), implemented, verified on hardware
-without electrodes (2026-10-03).** H1, H3, H4 and H5 passed; H2 (a real
-Bluetooth drop) and H6 (feel, needs electrodes) are open. See
+without electrodes (2026-10-03).** H1–H5 passed; H6 (feel, needs electrodes)
+is open. See
 [Hardware check](#hardware-check-2026-10-03).
 
 A device plugin `coyote3` drives a DG-LAB Coyote 3.0 ("郊狼 3.0", pulse host)
@@ -189,7 +189,8 @@ must name both A and B.
 
 ### Tasks and calls
 
-- **`connect()`**: find the box (`address` or scan by `name`, `scan_timeout`),
+- **`connect()`**: release a stale BlueZ link (see "Linux / BlueZ"), find the
+  box (`address` or scan by `name`, `scan_timeout`),
   connect with a `disconnected_callback`, check that service `0x180C` and both
   characteristics exist, subscribe to `0x150B`, read the battery, write BF,
   zero the strength (B0 + B1 handshake, timeout → `DeviceError`), start the
@@ -244,7 +245,16 @@ must name both A and B.
   settings). The user's machine: Intel AX2xx (`8087:0032`), Bluetooth 5.3,
   "central" role, BlueZ 5.72: suitable.
 - bleak talks to BlueZ over D-Bus; no root and no special group are needed on a
-  normal desktop session. Pairing is not expected to be necessary (*H5*).
+  normal desktop session. No pairing is needed (H5).
+- **Stale links.** When a connection dies without a proper disconnect
+  (Bluetooth switched off, out of range, a crash), BlueZ keeps the box on its
+  auto-connect list and reconnects it by itself once possible. Nobody uses that
+  link, so there is no output, but while it exists the box doesn't advertise and
+  can't be found (seen in H2). Before scanning, `connect()` therefore asks BlueZ
+  over D-Bus (`dbus_fast`, a bleak dependency) for a connected device with the
+  configured address (or name) and disconnects it, logging a warning. Any
+  problem with that check (not Linux, no BlueZ) is ignored. Manual equivalent:
+  `bluetoothctl disconnect <address>`.
 
 ## Testing
 
@@ -288,16 +298,20 @@ checks through the plugin and the `SafetyGuard`; the user watched the box.
 | Check | Result |
 |---|---|
 | H1 | ✅ When the frames stopped (writer cancelled, no stop command), the user saw the box stop its output at once, and resume when the frames resumed. The box kept reporting strength 5, as expected: strength stays, the waveform runs out. |
-| H2 | ⏳ Not tested: switching the PC's Bluetooth off during output. |
+| H2 | ✅ `bluetoothctl power off` during output (twice): the plugin noticed within 3–65 ms (disconnect callback or a failed write), the guard emergency-stopped and was disarmed 0.18–0.24 s after the switch-off; its `stop()` failed as it must without Bluetooth and logged the CRITICAL "check the device physically". After Bluetooth came back, BlueZ had **reconnected the box by itself** (see "Linux / BlueZ"); with the fix the plugin reconnected in 5.1 s, re-applying BF and strength 0. Whether the box stopped its output was for the user to watch (same mechanism as H1). |
 | H3 | ✅ 31 frames in 3 s, gaps 99–101 ms. Strength changes confirmed by B1 in 0.13–0.27 s (`reply_timeout` 0.5 s). Characteristic `0x150A` offers only write-without-response, the mode the plugin uses. |
 | H4 | ✅ Wheel down/up reported as B1 with sequence 0 within ~30 ms (5 → 4 → 3 → 4 → 5); turning further up stayed at the soft limit 5. |
 | H5 | ✅ Found by name and connected in ~3.5 s without pairing. (Whether the DG-LAB app must be disconnected first was not tried.) |
 | H6 | ⏳ Needs electrodes. |
 
-Found and fixed during the check: bleak calls the disconnected callback for an
-intentional disconnect too, which the plugin logged as "Bluetooth connection
-lost" (ERROR). The plugin now ignores the callback while it closes the
-connection itself.
+Found and fixed during the check:
+
+- bleak calls the disconnected callback for an intentional disconnect too,
+  which the plugin logged as "Bluetooth connection lost" (ERROR). The plugin now
+  ignores the callback while it closes the connection itself.
+- After a Bluetooth drop, BlueZ reconnected the box by itself, so it could not
+  be found again ("no Coyote 3.0 … found", three times in a row). The plugin now
+  releases such a stale link before scanning (see "Linux / BlueZ").
 
 ## Phases
 
@@ -305,7 +319,7 @@ connection itself.
 2. Device plugin with the fake client + safety tests, docs (`devices.md`,
    user guide page, example config, ADR). **Done.**
 3. Hardware checklist H1–H6 with the user; adjust (for example, the default
-   frequency and balance). **H1, H3, H4, H5 done; H2 and H6 open.**
+   frequency and balance). **H1–H5 done; H6 open.**
 
 ## Decisions
 

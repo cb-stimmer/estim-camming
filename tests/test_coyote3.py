@@ -378,3 +378,49 @@ async def test_safety_guard_stops_on_a_coyote_fault_and_on_stop(box):
     assert not guard.armed
     assert [e.reason for e in [await sub.get(), await sub.get()]][-1] == "device error"
     await device.disconnect()
+
+
+async def test_opening_releases_a_stale_bluez_link_before_scanning(monkeypatch):
+    import bleak
+
+    from estim_camming.devices import coyote3
+
+    calls = []
+
+    async def release(options):
+        calls.append("release")
+        return True
+
+    async def find(options):
+        calls.append("scan")
+        return SimpleNamespace(address="C3:9F:8B:CC:3B:85")
+
+    class Client:
+        def __init__(self, device, disconnected_callback, timeout):
+            calls.append(("client", device.address, timeout))
+
+        async def connect(self):
+            calls.append("connect")
+
+    monkeypatch.setattr(coyote3, "_release_stale_link", release)
+    monkeypatch.setattr(coyote3, "_find_device", find)
+    monkeypatch.setattr(bleak, "BleakClient", Client)
+    options = Coyote3Device.Options(strength=5, connect_timeout=7)
+    client = await coyote3._open_bleak(options, lambda c: None)
+    assert isinstance(client, Client)
+    assert calls == ["release", "scan", ("client", "C3:9F:8B:CC:3B:85", 7), "connect"]
+
+
+async def test_opening_reports_a_box_that_isnt_found(monkeypatch):
+    from estim_camming.devices import coyote3
+
+    async def release(options):
+        return False
+
+    async def find(options):
+        return None
+
+    monkeypatch.setattr(coyote3, "_release_stale_link", release)
+    monkeypatch.setattr(coyote3, "_find_device", find)
+    with pytest.raises(DeviceError, match="no Coyote 3.0 named '47L121000' found within 10 s"):
+        await coyote3._open_bleak(Coyote3Device.Options(strength=5), lambda c: None)

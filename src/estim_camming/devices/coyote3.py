@@ -282,25 +282,92 @@ def _pick(value: Any, channel: str) -> Any:
 ClientFactory = Callable[["Coyote3Device.Options", Callable[[Any], None]], Awaitable[Any]]
 
 
+async def _find_device(options: Coyote3Device.Options) -> Any:
+    """Scan for the box by address or name; None if it isn't advertising."""
+    from bleak import BleakScanner
+
+    try:
+        if options.address:
+            return await BleakScanner.find_device_by_address(
+                options.address, timeout=options.scan_timeout
+            )
+        return await BleakScanner.find_device_by_name(options.name, timeout=options.scan_timeout)
+    except Exception as exc:  # BleakError, D-Bus errors: Bluetooth off or missing
+        raise DeviceError(f"Bluetooth scan failed (is Bluetooth switched on?): {exc!r}") from exc
+
+
+async def _release_stale_link(options: Coyote3Device.Options) -> bool:
+    """Linux/BlueZ: disconnect a link to the box left over from an earlier session.
+
+    When a connection dies without a proper disconnect (Bluetooth switched off,
+    out of range, a crash), BlueZ keeps the box on its auto-connect list and
+    reconnects it by itself later. Nobody uses that link, but while it exists
+    the box doesn't advertise, so it can't be found. Returns True if such a link
+    was disconnected. Any problem (not Linux, no BlueZ) just returns False."""
+    try:
+        from dbus_fast import BusType, Message, MessageType
+        from dbus_fast.aio import MessageBus
+    except ImportError:
+        return False
+    bus = None
+    try:
+        bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+        reply = await bus.call(
+            Message(
+                destination="org.bluez",
+                path="/",
+                interface="org.freedesktop.DBus.ObjectManager",
+                member="GetManagedObjects",
+            )
+        )
+        if reply.message_type != MessageType.METHOD_RETURN:
+            return False
+        released = False
+        for path, interfaces in reply.body[0].items():
+            device = interfaces.get("org.bluez.Device1")
+            if not device or not device.get("Connected") or not device["Connected"].value:
+                continue
+            address = device["Address"].value if "Address" in device else ""
+            name = device["Name"].value if "Name" in device else ""
+            if (options.address or "").upper() == address.upper() or (
+                not options.address and name == options.name
+            ):
+                log.warning(
+                    "Coyote 3.0 %s was still connected from an earlier session; disconnecting it",
+                    address,
+                )
+                await bus.call(
+                    Message(
+                        destination="org.bluez",
+                        path=path,
+                        interface="org.bluez.Device1",
+                        member="Disconnect",
+                    )
+                )
+                released = True
+        if released:
+            await asyncio.sleep(1.0)  # give the box a moment to advertise again
+        return released
+    except Exception:
+        log.debug("could not check BlueZ for a stale Coyote connection", exc_info=True)
+        return False
+    finally:
+        if bus is not None:
+            bus.disconnect()
+
+
 async def _open_bleak(options: Coyote3Device.Options, on_disconnect: Callable[[Any], None]) -> Any:
     try:
-        from bleak import BleakClient, BleakScanner
+        from bleak import BleakClient
     except ImportError as exc:
         raise DeviceError(
             "the coyote3 device needs the bleak library (install with: "
             f"pip install -e '.[coyote3]'); import failed: {exc!r}"
         ) from exc
-    try:
-        if options.address:
-            device = await BleakScanner.find_device_by_address(
-                options.address, timeout=options.scan_timeout
-            )
-        else:
-            device = await BleakScanner.find_device_by_name(
-                options.name, timeout=options.scan_timeout
-            )
-    except Exception as exc:  # BleakError, D-Bus errors: Bluetooth off or missing
-        raise DeviceError(f"Bluetooth scan failed (is Bluetooth switched on?): {exc!r}") from exc
+    # A link BlueZ kept from an earlier session hides the box from the scan; the
+    # check is instant, so do it first.
+    await _release_stale_link(options)
+    device = await _find_device(options)
     if device is None:
         target = options.address or f"named {options.name!r}"
         raise DeviceError(

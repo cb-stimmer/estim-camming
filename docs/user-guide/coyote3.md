@@ -116,3 +116,8 @@ estim-camming.
   Fix the connection, restart estim-camming, and arm again.
 - **"no Coyote 3.0 named '47L121000' found"**: the box is off, out of range,
   still connected to the DG-LAB app, or your computer's Bluetooth is off.
+- After the connection dropped, Linux sometimes reconnects the box by itself in
+  the background. That connection does nothing, but it hides the box.
+  estim-camming detects this when it starts and disconnects it (the log says
+  "was still connected from an earlier session"). By hand:
+  `bluetoothctl disconnect <address of the box>`.
