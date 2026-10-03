@@ -142,6 +142,10 @@ connection's `protocol.name`.
   **Hardware check 2026-10-01:** the user tested a real 2B (without electrodes):
   basic control and `min_output` work as expected. Per-channel rules (ADR-012)
   have not been checked on hardware yet.
+  **Hardware check 2026-10-03:** the user tested estim2py 0.4.1 with a real 2B on
+  beta firmware 2.131B (status protocol `2.120B`): `power = "dynamic"`, `bias`, `warp` and
+  `ramp` work, and so does editing rules live with the rules editor. What warp
+  and ramp do to the signal is still undocumented (open question above).
 
 ## Adding a device
 
