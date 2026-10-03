@@ -1,5 +1,7 @@
 # estim-camming
 
+📖 **Documentation: <https://cb-stimmer.github.io/estim-camming/>** (user guide and design)
+
 Control an output device from tips received on webcam streaming sites, with an
 overlay for OBS Studio and a control panel with an emergency stop.
 
