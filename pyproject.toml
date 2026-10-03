@@ -31,6 +31,10 @@ docs = [
 estim2b = [
     "estim2py @ git+https://github.com/cb-stimmer/estim2py@v0.4.1 ; python_version >= '3.12'",
 ]
+# DG-LAB Coyote 3.0 over Bluetooth LE (BlueZ on Linux).
+coyote3 = [
+    "bleak>=3.0",
+]
 # Desktop control window (estim-camming gui).
 gui = [
     "PySide6-Essentials>=6.6",

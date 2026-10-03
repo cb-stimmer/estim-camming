@@ -37,6 +37,7 @@ channels = ["A", "B"]
 |---|---|
 | `dummy` | `channels` (list, default `["A", "B"]`), `log_step` (default 0.1) |
 | `estim2b` | E-Stim Systems 2B over serial: `port`, `power`, `mode`, `max_output`, ... See [E-Stim 2B setup](estim2b.md) |
+| `coyote3` | DG-LAB Coyote 3.0 over Bluetooth: `strength` (required), `strength_limit`, `max_output`, `frequency`, ... See [Coyote 3.0 setup](coyote3.md) |
 
 Run `estim-camming plugins` to see every installed device and its options.
 

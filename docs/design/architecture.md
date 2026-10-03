@@ -99,7 +99,7 @@ src/estim_camming/
   safety.py         SafetyConfig, SafetyGuard
   example_config.toml
   platforms/        base.py, simulator.py, chaturbate.py, bridge.py (+ bridge.user.js), stripchat.py
-  devices/          base.py, dummy.py, estim2b.py
+  devices/          base.py, dummy.py, estim2b.py, coyote3.py
   overlay/          server.py, static/{overlay.html, control.html, common.js}
   gui/              main.py, window.py, client.py, engine.py, model.py,
                     rules.py + rules_model.py (rules editor) (PySide6, optional)

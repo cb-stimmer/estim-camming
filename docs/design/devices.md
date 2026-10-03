@@ -147,9 +147,17 @@ connection's `protocol.name`.
   `ramp` work, and so does editing rules live with the rules editor. What warp
   and ramp do to the signal is still undocumented (open question above).
 
-### `coyote3` (in development)
+### `coyote3`
 
-DG-LAB Coyote 3.0 over Bluetooth LE. Design: [Coyote 3.0](coyote3.md).
+DG-LAB Coyote 3.0 over Bluetooth LE (bleak, `pip install -e '.[coyote3]'`),
+DG-LAB's official V3 protocol. Channels `A`, `B`. The channel strength (pulse
+voltage) is a fixed, required setting that the box enforces as its soft limit;
+the level drives the pulse width (`min_output`..`max_output`, 0–100), in four
+25 ms steps per 100 ms frame. Stop sets the strength to 0 at once. Faults
+(connection lost, write errors and timeouts, missing confirmations) make the
+next `set_levels()` raise. The box should stop by itself within ~100 ms when
+frames stop (to be confirmed on hardware, H1). Full design, protocol summary
+and hardware checklist: [Coyote 3.0](coyote3.md).
 
 ## Adding a device
 

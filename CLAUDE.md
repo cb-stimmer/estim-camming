@@ -64,7 +64,8 @@ src/estim_camming/
                   bridge.py + bridge.user.js (userscript bridge: websocket/dom modes),
                   stripchat.py (bridge + WebSocket frame parser)
   devices/        base.py, dummy.py, estim2b.py (E-Stim 2B via estim2py 0.4.1 fork from git; 2.106 + beta firmware),
-                  coyote3.py (DG-LAB Coyote 3.0 BLE: protocol functions; plugin in development)
+                  coyote3.py (DG-LAB Coyote 3.0 over BLE via bleak; protocol functions + plugin;
+                  hardware checks H1-H6 still open)
   overlay/        server.py (aiohttp), static/ (overlay.html, control.html, common.js)
   gui/            PySide6 control window: client of the control API; engine as child process;
                   rules.py = rules editor window (rules_model.py: its Qt-free helpers)

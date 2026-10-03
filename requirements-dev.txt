@@ -1,3 +1,3 @@
-# Development install (tests, linting, documentation, GUI, E-Stim 2B): pip install -r requirements-dev.txt
+# Development install (tests, linting, documentation, GUI, E-Stim 2B, Coyote 3.0): pip install -r requirements-dev.txt
 # Dependencies are defined in pyproject.toml ([project.optional-dependencies]).
--e .[dev,docs,gui,estim2b]
+-e .[dev,docs,gui,estim2b,coyote3]

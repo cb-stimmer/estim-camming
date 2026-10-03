@@ -1,8 +1,9 @@
 # DG-LAB Coyote 3.0 device
 
-**Status: accepted ([ADR-018](decisions.md)), in development.** Phase 1
-(protocol functions in `devices/coyote3.py`, tested against the official
-examples) is done; the plugin itself and the hardware checks (H1–H6) follow.
+**Status: accepted ([ADR-018](decisions.md)), implemented, not yet verified on
+hardware.** Phases 1 (protocol functions) and 2 (the plugin, tested against a
+fake box) are done; the hardware checks H1–H6 (phase 3) are open. Until H1 is
+confirmed, the plugin must not be used on skin above the lowest strengths.
 
 A device plugin `coyote3` drives a DG-LAB Coyote 3.0 ("郊狼 3.0", pulse host)
 directly over **Bluetooth LE** from the PC, with no phone or DG-LAB app in
@@ -136,14 +137,18 @@ absolute value only when it changes; its patterns drive the waveform).
   number, waiting for the matching B1 → the box is known to be at 0.
 - **First non-zero level** (after connect or a stop): B0 *absolute `strength`*
   with a sequence number, in the same frame as the first waveform values (the
-  guard's soft start ramps the pulse width up from there). The plugin waits for
-  the B1 before any further strength change.
+  guard's soft start ramps the pulse width up from there). The B1 confirmation
+  is awaited in a separate task, so the 100 ms stream never pauses for it; a
+  missing or different confirmation is a fault. A newer strength change (a
+  stop) supersedes an unconfirmed one, which is not a fault.
 - **Wheel:** a B1 with sequence 0 means the performer turned the wheel. The
   plugin logs it and **keeps** the new strength (it can't exceed the soft
   limit) until the next stop (D1).
 - **`stop()`** (emergency stop, disarm): immediately, outside the 100 ms rhythm,
-  a B0 *absolute 0/0* plus intensity 0 on all segments. Strength is restored
-  only by the next non-zero level, i.e. after re-arming.
+  a B0 *absolute 0/0* plus intensity 0 on all segments, then waits for the
+  box's confirmation (at most `reply_timeout`, inside the guard's
+  `device_timeout`). Strength is restored only by the next non-zero level, i.e.
+  after re-arming. The log shows `strength on (A=…, B=…)` and `strength 0`.
 - **Disconnect:** `stop()` first, then close.
 
 ## Plugin structure
@@ -155,7 +160,7 @@ absolute value only when it changes; its patterns drive the waveform).
 fake box in tests) so it can be tested
 byte for byte against the doc's examples. BLE through
 [bleak](https://github.com/hbldh/bleak) (async, BlueZ on Linux), as an optional
-extra `coyote3 = ["bleak>=…"]`, imported lazily in `connect()` like estim2py.
+extra `coyote3 = ["bleak>=3.0"]`, imported lazily in `connect()` like estim2py.
 No worker thread is needed: bleak is asyncio-native, so this also satisfies
 "no blocking I/O on the loop".
 
@@ -166,18 +171,21 @@ No worker thread is needed: bleak is asyncio-native, so this also satisfies
 | `address` | none | Bluetooth address; unset = scan for the name |
 | `name` | `47L121000` | Advertised name to scan for |
 | `scan_timeout` | 10 | Seconds to find the box |
+| `connect_timeout` | 10 | Seconds to connect |
 | `strength` | **required** | Channel strength (0–200) when output is on; number or `{ A = …, B = … }` |
 | `strength_limit` | = `strength` | BF soft limit (0–200), enforced by the box, also against the wheel |
 | `min_output` / `max_output` | 0 / 100 | Waveform intensity range for levels > 0 |
 | `frequency` | 50 | Carrier in Hz (1–100), per channel or shared (D2) |
 | `frequency_balance` | 160 | BF param 1 (0–255) (D3) |
 | `intensity_balance` | 0 | BF param 2 (0–255) |
-| `stall_timeout` | 1.0 | No successful write for this long = device fault |
+| `stall_timeout` | 1.0 | No successful write for this long = device fault; also the timeout of each write |
+| `reply_timeout` | 0.5 | Seconds for the box to confirm a strength change (B1) |
 
 `strength` has no default on purpose: like the 2B's `port`, the performer has
 to choose it consciously, and it is the number that matters most for safety.
 Validation: 0 ≤ `strength` ≤ `strength_limit` ≤ 200 per channel, 0 ≤
-`min_output` ≤ `max_output` ≤ 100.
+`min_output` ≤ `max_output` ≤ 100, 1 ≤ `frequency` ≤ 100. A per-channel table
+must name both A and B.
 
 ### Tasks and calls
 
@@ -186,16 +194,22 @@ Validation: 0 ≤ `strength` ≤ `strength_limit` ≤ 200 per channel, 0 ≤
   characteristics exist, subscribe to `0x150B`, read the battery, write BF,
   zero the strength (B0 + B1 handshake, timeout → `DeviceError`), start the
   writer task. Any failure → `DeviceError`, which aborts start-up.
-- **Writer task**: every 100 ms on a monotonic schedule (no drift), build a B0
-  from the latest target and any pending strength change, and write it
-  **without response** (as Howl and coyote-3-studio do; the B1 handshake
-  confirms strength changes). A failed write, a disconnect callback or a
-  missing B1 within 0.5 s sets the device error.
+- **Writer task**: every 100 ms on a monotonic schedule (no drift; if it falls
+  behind it doesn't burst to catch up), build a B0 from the latest target, and
+  write it **without response** (as Howl and coyote-3-studio do; the B1
+  handshake confirms strength changes). Every write is bounded by
+  `stall_timeout`, so a hanging Bluetooth stack can't block a stop or
+  shutdown. A failed or timed-out write, a disconnect callback or a missing B1
+  within `reply_timeout` sets the device error and ends the task.
 - **`set_levels()`**: raise if not connected, if there is an error, or if the
-  last successful write is older than `stall_timeout` (the guard then performs
-  an emergency stop, S8). Otherwise store the target (box units) and return.
+  last successful write is older than `stall_timeout` (for example a writer
+  task that died; the guard then performs an emergency stop, S8). Otherwise
+  store the target (box units) and return.
 - **`stop()`**: zero the target and write the stop frame at once (see the
   strength life cycle), serialised with the writer by an `asyncio.Lock`.
+- **`disconnect()`**: cancel the writer and confirmation tasks, `stop()` (unless
+  the connection is already broken; a failure is logged as CRITICAL, check the
+  box), then close. Idempotent.
 - **B1 notifications**: update the known strength; sequence 0 = wheel, logged.
   A reported strength above `strength_limit` would be a firmware fault →
   device error.
@@ -239,11 +253,18 @@ Validation: 0 ≤ `strength` ≤ `strength_limit` ≤ 200 per channel, 0 ≤
   frequency conversion lists and table, the strength examples and soft limit,
   BF bytes, B1 parsing, rejected values, level → intensity, and interpolation
   (ramps up within the two values, drops at once).
-- **Plugin tests with a fake BleakClient**: connect sequence (BF before any
-  B0, strength zeroed and confirmed), 100 ms cadence with a fake clock, latest
-  target wins, strength restore after stop, wheel B1, disconnect / write error
-  / stall / missing B1 → `set_levels` raises, `SafetyGuard` emergency-stops on a
-  Coyote fault (`tests/test_safety.py`), missing bleak → clear `DeviceError`.
+- **Plugin tests** (`tests/test_coyote3.py`, done) with a fake box that
+  follows the documented strength rules, soft limit, B1 replies and wheel:
+  connect sequence (BF before any B0, strength zeroed and confirmed), output
+  switches the strength on and ramps the pulse width, frequency bytes,
+  `min/max_output`, stop zeroes at once and output switches on again, the
+  wheel is kept, disconnect, faults (connection lost, write error, write
+  timeout, dead writer, missing confirmation, strength above the limit) →
+  `set_levels` raises, a stop while switching on is not a fault, a device
+  without the Coyote characteristics is refused, missing bleak → clear
+  `DeviceError`, option validation, and the `SafetyGuard` emergency-stopping on
+  a Coyote fault and zeroing the box on STOP. The frame interval is 20 ms in
+  the tests instead of 100 ms.
 - **Hardware checklist** (by the user, **without electrodes first**, then on
   skin at the lowest strength):
   - **H1** Output stops within ~100 ms when B0 frames stop (pause the engine
@@ -260,9 +281,9 @@ Validation: 0 ≤ `strength` ≤ `strength_limit` ≤ 200 per channel, 0 ≤
 
 ## Phases
 
-1. Protocol functions + unit tests (no hardware).
+1. Protocol functions + unit tests (no hardware). **Done.**
 2. Device plugin with the fake client + safety tests, docs (`devices.md`,
-   user guide page, example config, ADR).
+   user guide page, example config, ADR). **Done.**
 3. Hardware checklist H1–H6 with the user; adjust (for example, the default
    frequency and balance).
 
