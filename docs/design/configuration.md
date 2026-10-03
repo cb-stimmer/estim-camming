@@ -14,6 +14,13 @@
      `options` against their `Options` models), the `RuleEngine` (patterns and
      channels), and the `SafetyGuard` (channel names).
   `estim-camming check` runs both stages without connecting anything.
+- `config.load_config_file(path)` also returns the SHA-256 of the bytes it
+  parsed. The engine uses it to save rules from the rules editor into this file
+  (`rules_io.RulesFile`): only the `[[rules]]` tables are rewritten, everything
+  else stays as it is, and a file that was changed by hand since it was loaded
+  is never overwritten. Saving keeps `config.toml.bak` (the original, once per
+  session) and writes through `config.toml.tmp`. See
+  [Rules editor](rules-editor.md).
 - The example config ships inside the package (`example_config.toml`).
   `estim-camming init` writes it out, and a test keeps it valid.
 

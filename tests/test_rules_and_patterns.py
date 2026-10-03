@@ -58,7 +58,7 @@ def test_rule_validation():
 def test_engine_rejects_unknown_pattern_params_and_channels():
     with pytest.raises(PluginError, match="unknown pattern"):
         engine({"name": "r", "tokens": 1, "pattern": "nope", "intensity": 1, "duration": 1})
-    with pytest.raises(PluginError, match="invalid options"):
+    with pytest.raises(PluginError, match="params.bogus: Extra inputs"):
         engine(
             {
                 "name": "r",

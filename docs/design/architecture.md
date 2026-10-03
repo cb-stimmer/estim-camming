@@ -93,6 +93,7 @@ src/estim_camming/
   bus.py            EventBus / Subscription
   plugins.py        Plugin base, Registry, PLATFORMS / DEVICES / PATTERNS
   rules.py          Rule model, RuleEngine
+  rules_io.py       rules as config data: checks, TOML writing (rules editor)
   patterns.py       Pattern base + built-in patterns
   scheduler.py      Scheduler
   safety.py         SafetyConfig, SafetyGuard
@@ -100,5 +101,6 @@ src/estim_camming/
   platforms/        base.py, simulator.py, chaturbate.py, bridge.py (+ bridge.user.js), stripchat.py
   devices/          base.py, dummy.py, estim2b.py
   overlay/          server.py, static/{overlay.html, control.html, common.js}
-  gui/              main.py, window.py, client.py, engine.py, model.py (PySide6, optional)
+  gui/              main.py, window.py, client.py, engine.py, model.py,
+                    rules.py + rules_model.py (rules editor) (PySide6, optional)
 ```

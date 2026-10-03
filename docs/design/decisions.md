@@ -174,3 +174,32 @@ as the box's display.
 users to treat it like `high`. `bias` without dynamic power is a config error.
 What warp and ramp do exactly is still an open question in
 [devices.md](devices.md).
+
+## ADR-016: Rules editor: the engine applies and saves, rules spliced into config.toml
+
+**Decision.** A desktop rules editor edits a draft and sends it to new control
+API routes (`GET /api/rules`, `POST /api/rules/check`, `POST /api/rules`). One
+**Save** applies the rules to the running engine at once (an atomic swap of the
+`RuleEngine`) and writes them to `config.toml`. Saving is allowed while armed;
+it affects only tips that arrive afterwards. The engine, not the GUI, writes the
+file: it replaces only the `[[rules]]` tables (text splice of a block generated
+with `tomlkit`), checks that everything else reads back unchanged, keeps a
+`.bak`, writes atomically, and refuses to overwrite a file that was changed by
+hand since it was loaded. Revisions make concurrent edits fail with 409 instead
+of overwriting each other. Comments between rules are not kept.
+**Why.** The user wanted to change the tip menu without editing TOML and
+restarting. They chose a single Save that applies directly over separate
+Apply/Save buttons (the running rules and the file never differ), allowing it
+while armed (no need to stop the show for a typo), losing comments inside
+`[[rules]]` (simpler than a separate rules file), and `tomlkit` as a new core
+dependency. Keeping the engine as the only writer means the same behaviour with
+`gui --connect` and a future web editor, and one place for validation (the GUI
+runs the same `check_rules` locally only for instant feedback). Splicing text
+instead of editing the tomlkit document keeps comments that sit after the last
+rule with the section they describe.
+**Consequence.** New invariant S13 (rule changes are all-or-nothing and
+forward-only, and can't touch safety settings). `GET /api/rules` needs the
+control token because it reveals hidden rules. New `RulesChanged` event and
+`rules_revision` in the snapshot. Hand-written comments between rules disappear
+on the first save, and `config.toml.bak` keeps the original.
+

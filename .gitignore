@@ -219,5 +219,7 @@ __marimo__/
 
 # Local configuration (may contain API tokens)
 config.toml
+config.toml.bak
+config.toml.tmp
 # Generated userscripts (contain the bridge token)
 /*.user.js

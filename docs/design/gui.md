@@ -70,6 +70,9 @@ works in short tiles:
 | Now playing | Action label, time left, tipper and per-channel outputs, progress, queue, Skip/Clear |
 | Tips | Session total, recent tips, platform status |
 | Test tip | Username + tokens → `/api/tip` |
+
+**Edit rules…** (in Controls) opens the rules editor, a separate window. See
+[Rules editor](rules-editor.md).
 | Engine log | Collapsible stdout/stderr of the child process (only when the GUI started it). Opens by itself if the engine exits unexpectedly |
 
 Details that matter for safety:
@@ -123,6 +126,8 @@ Details that matter for safety:
   arm, test tip, output bars, Esc stop, Space in a text field vs. elsewhere,
   close (engine exits via the watchdog), showing an engine crash, that the icon
   loads, and that the on-top checkbox is replaced by the KWin hint on Wayland.
+
+- Rules editor tests: see [Rules editor](rules-editor.md#testing).
 
 ## Extending
 

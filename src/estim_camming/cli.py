@@ -13,7 +13,7 @@ from importlib.resources import files
 from pathlib import Path
 
 from estim_camming import __version__
-from estim_camming.config import ConfigError, load_config
+from estim_camming.config import ConfigError, load_config, load_config_file
 from estim_camming.plugins import DEVICES, PATTERNS, PLATFORMS, PluginError
 
 DEFAULT_CONFIG = "config.toml"
@@ -22,8 +22,10 @@ EXAMPLE_CONFIG = files("estim_camming") / "example_config.toml"
 
 def _build(config_path: str):
     from estim_camming.app import Application
+    from estim_camming.rules_io import RulesFile
 
-    return Application(load_config(config_path))
+    config, digest = load_config_file(config_path)
+    return Application(config, RulesFile(config_path, digest))
 
 
 def _watch_stdin(loop: asyncio.AbstractEventLoop, task: asyncio.Task) -> None:

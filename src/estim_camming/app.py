@@ -19,10 +19,18 @@ from typing import Any
 from estim_camming.bus import EventBus
 from estim_camming.config import AppConfig
 from estim_camming.devices import Device
-from estim_camming.events import PlatformStatus, TipEvent
+from estim_camming.events import PlatformStatus, RulesChanged, TipEvent
 from estim_camming.platforms import Platform, PlatformError
-from estim_camming.plugins import DEVICES, PLATFORMS
+from estim_camming.plugins import DEVICES, PATTERNS, PLATFORMS
 from estim_camming.rules import RuleEngine
+from estim_camming.rules_io import (
+    RulesConflict,
+    RulesFile,
+    RulesFileError,
+    RulesInvalid,
+    check_rules,
+    rule_to_data,
+)
 from estim_camming.safety import SafetyGuard
 from estim_camming.scheduler import Scheduler
 
@@ -36,8 +44,12 @@ class Application:
     """Owns all components. Also implements the controller API used by the
     overlay/control server (``arm``, ``emergency_stop``, ``snapshot``, ...)."""
 
-    def __init__(self, config: AppConfig) -> None:
+    def __init__(self, config: AppConfig, rules_file: RulesFile | None = None) -> None:
         self.config = config
+        #: Where the rules editor saves rules; None: live changes only.
+        self.rules_file = rules_file
+        self.rules_revision = 0
+        self._rules_lock = asyncio.Lock()
         self.bus = EventBus()
         self.device: Device = DEVICES.create(config.device.type, config.device.options)
         self.platforms: list[Platform] = [
@@ -151,6 +163,72 @@ class Application:
             TipEvent(platform="control-panel", username=username, tokens=tokens, message=message)
         )
 
+    # -- rules editor (see docs/design/rules-editor.md) --------------------
+
+    async def rules_info(self) -> dict[str, Any]:
+        file = await asyncio.to_thread(self.rules_file.info) if self.rules_file else None
+        safety = self.config.safety
+        return {
+            "revision": self.rules_revision,
+            "rules": [rule_to_data(rule) for rule in self.rules.rules],
+            "channels": list(self.device.channels),
+            "patterns": {
+                name: {
+                    "description": (PATTERNS.get(name).__doc__ or "").strip().split("\n")[0],
+                    "schema": PATTERNS.get(name).Options.model_json_schema(),
+                }
+                for name in PATTERNS.names()
+            },
+            "limits": {
+                "max_action_seconds": safety.max_action_seconds,
+                "max_level": safety.max_level,
+                "channel_max_level": dict(safety.channel_max_level),
+            },
+            "file": file,
+        }
+
+    def check_rules(self, rules: Any) -> dict[str, Any]:
+        return self._check(rules).to_dict()
+
+    def _check(self, rules: Any):
+        return check_rules(rules, self.device.channels, self.config.safety.max_action_seconds)
+
+    async def replace_rules(self, revision: int, rules: Any) -> dict[str, Any]:
+        """Swap in a new rule set (all or nothing), then save it to the config file.
+
+        New tips use the new rules at once; queued and playing actions keep
+        theirs. Raises RulesConflict for a stale ``revision`` and RulesInvalid if
+        the rules don't validate (the old rules stay live)."""
+        async with self._rules_lock:
+            if revision != self.rules_revision:
+                raise RulesConflict(self.rules_revision)
+            check = self._check(rules)
+            if not check.ok:
+                raise RulesInvalid(check)
+            assert check.rules is not None
+            self.rules = RuleEngine(
+                check.rules, self.device.channels, self.config.safety.max_action_seconds
+            )
+            self.rules_revision += 1
+            log.info(
+                "rules replaced (revision %d, %d rules)", self.rules_revision, len(check.rules)
+            )
+            saved, detail = False, "no config file (live only)"
+            if self.rules_file is not None:
+                try:
+                    await asyncio.to_thread(self.rules_file.write, check.rules)
+                    saved, detail = True, f"saved to {self.rules_file.path}"
+                except RulesFileError as exc:
+                    detail = str(exc)
+                    log.warning("rules not saved: %s", detail)
+            self.bus.publish(RulesChanged(revision=self.rules_revision, saved=saved))
+            return {
+                "revision": self.rules_revision,
+                "saved": saved,
+                "detail": detail,
+                "warnings": check.to_dict()["warnings"],
+            }
+
     def snapshot(self) -> dict[str, Any]:
         current = self.scheduler.current
         return {
@@ -167,5 +245,6 @@ class Application:
             "recent_tips": [t.to_dict() for t in self.recent_tips],
             "total_tokens": self.total_tokens,
             "menu": self.rules.menu(),
+            "rules_revision": self.rules_revision,
             "platforms": self.platform_status,
         }

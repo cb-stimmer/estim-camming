@@ -20,6 +20,9 @@ class Controller(Protocol):
     def clear_queue(self) -> None
     def inject_tip(self, username: str, tokens: int, message: str = "") -> None
     def snapshot(self) -> dict
+    async def rules_info(self) -> dict
+    def check_rules(self, rules) -> dict
+    async def replace_rules(self, revision: int, rules) -> dict
 ```
 
 ## Routes
@@ -38,10 +41,15 @@ class Controller(Protocol):
 | POST | `/api/skip` | Skip current action |
 | POST | `/api/clear` | Clear queue |
 | POST | `/api/tip` | `{"username": str, "tokens": int ≥ 1, "message"?: str}` test tip |
+| GET | `/api/rules` | Rules, pattern schemas, limits and file state for the rules editor (needs the token) |
+| POST | `/api/rules/check` | `{"rules": [...]}` → problems, no side effects |
+| POST | `/api/rules` | `{"revision": int, "rules": [...]}` replace the rules and save them (409 on a stale revision, 400 if invalid) |
 
 All `POST`s must be `application/json`, must not come from a foreign `Origin`,
 and must carry `X-Control-Token: <token>` (or `?token=`) when a token is
-configured. See [Safety](safety.md) S10.
+configured. See [Safety](safety.md) S10. `GET /api/rules` needs the token as
+well, because it shows hidden rules. The rules routes are described in
+[Rules editor](rules-editor.md).
 
 ## WebSocket protocol
 
@@ -69,6 +77,7 @@ Snapshot (`Application.snapshot()`):
   "recent_tips": [ {tip event}, ... ],
   "total_tokens": 1234,
   "menu": [ {"label": "Tease", "min_tokens": 1, "max_tokens": 24, "duration": 5.0} ],
+  "rules_revision": 0,
   "platforms": {"chaturbate (name)": {"connected": true, "detail": ""}}
 }
 ```

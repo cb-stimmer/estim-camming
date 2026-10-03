@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import QByteArray, QObject, QTimer, QUrl, Signal
@@ -98,6 +99,45 @@ class ControlClient(QObject):
         finally:
             reply.deleteLater()
         self.poll()
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        body: dict[str, Any] | None,
+        callback: Callable[[int, Any, str], None],
+    ) -> None:
+        """GET or POST with the token, then ``callback(status, data, error)``.
+
+        ``status`` is the HTTP status (0 if the engine wasn't reached), ``data``
+        the decoded JSON reply (or None) and ``error`` a short message for
+        failures. Used by the rules editor, which needs the replies."""
+        request = QNetworkRequest(QUrl(self._base + path))
+        if self._token:
+            request.setRawHeader(QByteArray(b"X-Control-Token"), QByteArray(self._token.encode()))
+        request.setTransferTimeout(COMMAND_TIMEOUT_MS)
+        if method == "GET":
+            reply = self._nam.get(request)
+        else:
+            request.setHeader(QNetworkRequest.KnownHeaders.ContentTypeHeader, "application/json")
+            reply = self._nam.post(request, QByteArray(json.dumps(body or {}).encode()))
+        reply.finished.connect(lambda: self._on_request(reply, callback))
+
+    def _on_request(self, reply: QNetworkReply, callback: Callable[[int, Any, str], None]) -> None:
+        try:
+            status = reply.attribute(QNetworkRequest.Attribute.HttpStatusCodeAttribute) or 0
+            raw = bytes(reply.readAll().data())
+            try:
+                data = json.loads(raw) if raw else None
+            except ValueError:
+                data = None
+            error = ""
+            if reply.error() != QNetworkReply.NetworkError.NoError:
+                error = raw.decode(errors="replace").strip() if data is None else ""
+                error = error or reply.errorString()
+            callback(int(status), data, error)
+        finally:
+            reply.deleteLater()
 
     def arm(self) -> None:
         self.post("/api/arm")

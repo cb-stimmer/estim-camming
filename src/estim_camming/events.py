@@ -87,6 +87,15 @@ class LevelsChanged(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class RulesChanged(Event):
+    """The rules were replaced (rules editor). New tips use the new rules."""
+
+    type: ClassVar[str] = "rules_changed"
+    revision: int
+    saved: bool
+
+
+@dataclass(frozen=True, kw_only=True)
 class SafetyStateChanged(Event):
     type: ClassVar[str] = "safety"
     armed: bool

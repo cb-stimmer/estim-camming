@@ -35,6 +35,7 @@ All events are frozen dataclasses deriving from `events.Event`, with a
 | `QueueCleared` | `queue_cleared` | count | scheduler |
 | `LevelsChanged` | `levels` | levels (channel → 0..1 of full scale) | safety guard |
 | `SafetyStateChanged` | `safety` | armed, scale, reason | safety guard |
+| `RulesChanged` | `rules_changed` | revision, saved | application (rules editor save) |
 
 `LevelsChanged` is only published when a channel moves by more than 0.005 or
 returns to zero, which limits it to roughly the tick rate while something is

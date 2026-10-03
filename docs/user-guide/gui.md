@@ -49,9 +49,51 @@ Closing the window then leaves estim-camming running.
   and the queue. With **Skip current** and **Clear queue**.
 - **Tips**: tokens this session, recent tips, and whether your platforms are
   connected.
+- **Edit rules…**: opens the rules editor (below).
 - **Test tip**: send a tip to try your tip menu.
 - **Engine log**: estim-camming's messages. Opens by itself if something goes
   wrong.
+
+## Editing the tip menu
+
+**Edit rules…** opens a second window where you can change the tip menu while
+estim-camming runs. No need to edit `config.toml` or restart.
+
+- **The list** on the left shows the rules in the order they are checked. The
+  **first rule that matches** a tip wins, so put specials (like exactly 69)
+  above ranges that contain them (like 25–99). Drag rules, or use ▲/▼, to change
+  the order.
+- **+ Add**, **Duplicate** and **Delete** do what they say.
+- **The form** on the right edits the selected rule: name, label (the text in
+  the overlay menu), tokens (an exact amount or a range), time (fixed, random, or
+  longer for bigger tips), and the output: pattern, its options and intensity.
+  Choose **Per channel** to give A and B different patterns or intensities.
+- **Intensity** is relative to your safety maximum: the line under it shows what
+  it means on the device, for example "≈ A 30%". The editor can't raise your
+  safety limits; those stay in `config.toml`.
+- **Preview** draws the output over the rule's time. A shaded band means it
+  varies per tip (random patterns).
+- **Try** shows which rule a tip amount would trigger, without sending a tip.
+- **Problems** under the list: ⛔ errors must be fixed before saving. ⚠ warnings
+  (for example a rule that can never match because an earlier rule takes all
+  its amounts) and ℹ notes can be saved anyway.
+- **Save** (Ctrl+S) applies the rules **at once**, also while armed: the next
+  tip uses them. Whatever is playing or queued keeps its old settings. Save also
+  writes the rules to `config.toml`, so they are there after a restart. The
+  first save keeps a copy of your old file as `config.toml.bak`.
+- **Revert** throws your changes away and loads the current rules again.
+
+Good to know:
+
+- Comments you wrote **between** the `[[rules]]` in `config.toml` are removed
+  when you save from the editor. Comments elsewhere in the file are kept.
+- If you edited `config.toml` by hand while estim-camming was running, the
+  editor won't overwrite it. Your new rules are still used, but the status line
+  says they were **not saved**. Restart estim-camming to load your hand edits.
+- If the rules were changed somewhere else meanwhile (another window), an orange
+  bar lets you reload them or overwrite them with yours.
+- **Esc** stops the output in this window too. **Space** also stops, unless you
+  are typing in a text or number field.
 
 ## Menu entry and taskbar icon (optional)
 

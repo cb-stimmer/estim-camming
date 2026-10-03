@@ -6,7 +6,7 @@ import random
 from collections.abc import Sequence
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from estim_camming.actions import Action, ChannelOutput
 from estim_camming.events import TipEvent
@@ -123,19 +123,9 @@ class RuleEngine:
 
     def _validate(self) -> None:
         for rule in self.rules:
-            unknown = set(rule.channels or ()) - set(self.device_channels)
-            if unknown:
-                raise PluginError(
-                    f"rule '{rule.name}': unknown channel(s) {sorted(unknown)}; "
-                    f"device has {list(self.device_channels)}"
-                )
-            for output in rule.outputs(self.device_channels):
-                try:
-                    PATTERNS.create(output.pattern, output.params)
-                except PluginError as exc:
-                    raise PluginError(
-                        f"rule '{rule.name}', channel {output.channel}: {exc}"
-                    ) from exc
+            problems = wiring_problems(rule, self.device_channels)
+            if problems:
+                raise PluginError(f"rule '{rule.name}': {problems[0][1]}")
 
     def match(self, tokens: int) -> Rule | None:
         return next((r for r in self.rules if r.matches(tokens)), None)
@@ -169,3 +159,37 @@ class RuleEngine:
             for r in self.rules
             if r.show_in_menu
         ]
+
+
+def wiring_problems(rule: Rule, device_channels: Sequence[str]) -> list[tuple[str, str]]:
+    """(field, message) for channels the device lacks, unknown patterns and pattern
+    params that don't validate. Empty if the rule can run on this device."""
+    unknown = set(rule.channels or ()) - set(device_channels)
+    if unknown:
+        return [
+            (
+                "channels",
+                f"unknown channel(s) {sorted(unknown)}; device has {list(device_channels)}",
+            )
+        ]
+    specs = rule.channels if isinstance(rule.channels, dict) else None
+    problems = []
+    for output in rule.outputs(device_channels):
+        spec = specs[output.channel] if specs else None
+        where = f"channel {output.channel}: " if specs else ""
+        if output.pattern not in PATTERNS.names():
+            field = f"channels.{output.channel}.pattern" if spec and spec.pattern else "pattern"
+            problems.append((field, f"{where}unknown pattern {output.pattern!r}"))
+        else:
+            own_params = spec is not None and spec.params is not None
+            prefix = f"channels.{output.channel}.params" if own_params else "params"
+            try:
+                PATTERNS.get(output.pattern).Options.model_validate(output.params)
+            except ValidationError as exc:
+                for error in exc.errors():
+                    field = ".".join([prefix, *(str(part) for part in error["loc"])])
+                    message = error["msg"].removeprefix("Value error, ")
+                    problems.append((field, f"{where}{output.pattern} {field}: {message}"))
+        if problems and specs is None:
+            break  # every channel shares the rule's pattern and params
+    return problems

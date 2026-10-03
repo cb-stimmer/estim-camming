@@ -19,6 +19,7 @@ commit.
 | [Safety](safety.md) | Safety invariants and how they are enforced |
 | [Overlay and control panel](overlay.md) | Web server, WebSocket protocol, OBS integration |
 | [Desktop control window](gui.md) | PySide6 GUI, engine child process, stdin watchdog |
+| [Rules editor](rules-editor.md) | GUI window and API for editing rules while running |
 | [Configuration](configuration.md) | Config file schema and validation |
 | [Decision log](decisions.md) | Architecture decision records |
 
@@ -34,6 +35,7 @@ rules-and-patterns
 safety
 overlay
 gui
+rules-editor
 configuration
 decisions
 ```

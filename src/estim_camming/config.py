@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import ipaddress
 import tomllib
 from pathlib import Path
@@ -76,17 +77,24 @@ def parse_config(data: dict[str, Any]) -> AppConfig:
 
 
 def load_config(path: str | Path) -> AppConfig:
+    return load_config_file(path)[0]
+
+
+def load_config_file(path: str | Path) -> tuple[AppConfig, str]:
+    """The config and the SHA-256 of the bytes it was parsed from (the rules
+    editor uses it to notice hand edits before writing the file)."""
     path = Path(path)
     try:
-        with path.open("rb") as fh:
-            data = tomllib.load(fh)
+        raw = path.read_bytes()
     except FileNotFoundError:
         raise ConfigError(
             f"config file not found: {path} (create one with 'estim-camming init')"
         ) from None
-    except tomllib.TOMLDecodeError as exc:
+    try:
+        data = tomllib.loads(raw.decode())
+    except (tomllib.TOMLDecodeError, UnicodeDecodeError) as exc:
         raise ConfigError(f"{path}: invalid TOML: {exc}") from exc
     try:
-        return parse_config(data)
+        return parse_config(data), hashlib.sha256(raw).hexdigest()
     except ConfigError as exc:
         raise ConfigError(f"{path}: {exc}") from exc

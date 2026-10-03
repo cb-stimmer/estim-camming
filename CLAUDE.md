@@ -16,7 +16,7 @@ All design docs are Markdown in `docs/design/`, and they are the source of truth
 for interfaces and invariants:
 
 - [docs/design/architecture.md](docs/design/architecture.md): components, data flow, concurrency, package layout
-- [docs/design/safety.md](docs/design/safety.md): **safety invariants S1–S12, which must never be broken**
+- [docs/design/safety.md](docs/design/safety.md): **safety invariants S1–S13, which must never be broken**
 - [docs/design/plugins.md](docs/design/plugins.md): registries, `Options` models, entry points
 - [docs/design/platforms.md](docs/design/platforms.md): `Platform` contract, supervision, Chaturbate, browser bridge / Stripchat, adding a site
 - [docs/design/devices.md](docs/design/devices.md): `Device` contract, 0..1 level model, adding a device
@@ -24,6 +24,7 @@ for interfaces and invariants:
 - [docs/design/events.md](docs/design/events.md): event types and bus semantics
 - [docs/design/overlay.md](docs/design/overlay.md): web routes, WebSocket protocol, OBS overlay
 - [docs/design/gui.md](docs/design/gui.md): desktop control window, engine child process, stdin watchdog
+- [docs/design/rules-editor.md](docs/design/rules-editor.md): editing rules live, `/api/rules`, writing config.toml
 - [docs/design/configuration.md](docs/design/configuration.md): config schema and validation stages
 - [docs/design/decisions.md](docs/design/decisions.md): ADR log (append-only)
 
@@ -54,6 +55,7 @@ src/estim_camming/
   safety.py       SafetyGuard: the ONLY component that talks to the device
   scheduler.py    queue + tick loop (pattern x intensity -> guard.set_levels)
   rules.py        Rule (pydantic) + RuleEngine (first match wins)
+  rules_io.py     rules editor backend: check_rules, rule_to_data, safe config.toml writing
   patterns.py     Pattern base + constant/pulse/ramp/wave
   plugins.py      Plugin, PluginOptions, Registry, PLATFORMS/DEVICES/PATTERNS
   bus.py events.py actions.py config.py cli.py
@@ -62,7 +64,8 @@ src/estim_camming/
                   stripchat.py (bridge + WebSocket frame parser)
   devices/        base.py, dummy.py, estim2b.py (E-Stim 2B via estim2py 0.4.1 fork from git; 2.106 + beta firmware)
   overlay/        server.py (aiohttp), static/ (overlay.html, control.html, common.js)
-  gui/            PySide6 control window: client of the control API; engine as child process
+  gui/            PySide6 control window: client of the control API; engine as child process;
+                  rules.py = rules editor window (rules_model.py: its Qt-free helpers)
   example_config.toml   shipped example; `init` writes it; a test keeps it valid
 tests/            pytest (asyncio_mode=auto)
 docs/             Sphinx + MyST; design/ and user-guide/ are Markdown

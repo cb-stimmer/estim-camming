@@ -75,6 +75,15 @@ S12. **The GUI is a client, and its engine dies with it.** The desktop window
      runs with `--exit-on-stdin-close` and shuts down (S9) as soon as the GUI's
      end of the pipe closes, including when the GUI crashes. See [GUI](gui.md).
 
+S13. **Rule changes are bounded and forward-only.** Replacing the rules at run
+     time (rules editor, `POST /api/rules`) is all-or-nothing: an invalid set
+     leaves the old rules live. It never changes safety settings, and never
+     changes queued or playing actions; only tips that arrive afterwards use
+     the new rules. Rule intensity stays within 0..1 of the safety maximum (S4)
+     and durations within `max_action_seconds` (S6). The route is a protected
+     control action (S10), and `GET /api/rules` needs the token too, because it
+     shows hidden rules. See [Rules editor](rules-editor.md).
+
 ## Controls available to the performer
 
 - Control panel **STOP** button, plus keyboard shortcuts **Esc** and **Space**,

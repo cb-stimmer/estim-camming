@@ -78,6 +78,7 @@ class ControlWindow(QMainWindow):
         self._connected = False
         self._engine_exit: str | None = None
         self._bars: dict[str, QProgressBar] = {}
+        self.rules_window = None  # RulesWindow, created on first use
 
         self.setWindowTitle("estim-camming")
         self.resize(380, 820)
@@ -168,6 +169,11 @@ class ControlWindow(QMainWindow):
         master.addWidget(self.scale_slider, 1)
         master.addWidget(self.scale_value)
         grid.addLayout(master)
+
+        self.rules_button = QPushButton("Edit rules…")
+        self.rules_button.setToolTip("Edit the tip menu; saved rules apply to the next tip")
+        self.rules_button.clicked.connect(self.open_rules)
+        grid.addWidget(self.rules_button)
 
         self.on_top = QCheckBox("Keep window on top")
         self.on_top.toggled.connect(self._set_on_top)
@@ -284,6 +290,16 @@ class ControlWindow(QMainWindow):
 
     def emergency_stop(self) -> None:
         self.client.emergency_stop()
+
+    def open_rules(self) -> None:
+        from estim_camming.gui.rules import RulesWindow
+
+        if self.rules_window is None:
+            self.rules_window = RulesWindow(self.client)
+            self.rules_window.load()
+        self.rules_window.show()
+        self.rules_window.raise_()
+        self.rules_window.activateWindow()
 
     def _send_scale(self) -> None:
         self.client.set_scale(self.scale_slider.value() / 100)
@@ -411,6 +427,10 @@ class ControlWindow(QMainWindow):
         self._render_status()
 
     def closeEvent(self, event) -> None:  # noqa: N802 (Qt API)
+        if self.rules_window is not None and self.rules_window.isVisible():
+            if not self.rules_window.close():  # asks about unsaved changes
+                event.ignore()
+                return
         self.client.stop()
         if self.engine is not None and self.engine.running():
             self.status_label.setText("STOPPING…")

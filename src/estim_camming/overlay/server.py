@@ -7,6 +7,7 @@ Routes (see ``docs/design/overlay.md``):
 * ``GET /ws``        - WebSocket pushing ``{"event": ..., "state": ...}`` messages
 * ``GET /api/state`` - current state snapshot
 * ``POST /api/...``  - control actions (token-protected when configured)
+* ``GET /api/rules`` - rules for the editor (token-protected: shows hidden rules)
 """
 
 from __future__ import annotations
@@ -23,11 +24,14 @@ from aiohttp import WSMsgType, web
 from estim_camming.bus import EventBus
 from estim_camming.config import OverlayConfig
 from estim_camming.events import Event
+from estim_camming.rules_io import RulesConflict, RulesInvalid
 
 log = logging.getLogger(__name__)
 
 STATIC = files("estim_camming.overlay") / "static"
 _SEND_TIMEOUT = 1.0
+#: GET routes that need the control token too (they reveal hidden rules).
+_PROTECTED_GETS = frozenset({"/api/rules"})
 
 
 class Controller(Protocol):
@@ -38,6 +42,9 @@ class Controller(Protocol):
     def clear_queue(self) -> None: ...
     def inject_tip(self, username: str, tokens: int, message: str = "") -> None: ...
     def snapshot(self) -> dict[str, Any]: ...
+    async def rules_info(self) -> dict[str, Any]: ...
+    def check_rules(self, rules: Any) -> dict[str, Any]: ...
+    async def replace_rules(self, revision: int, rules: Any) -> dict[str, Any]: ...
 
 
 class OverlayServer:
@@ -63,6 +70,9 @@ class OverlayServer:
                 web.post("/api/skip", self._skip),
                 web.post("/api/clear", self._clear),
                 web.post("/api/tip", self._tip),
+                web.get("/api/rules", self._rules),
+                web.post("/api/rules/check", self._rules_check),
+                web.post("/api/rules", self._rules_replace),
             ]
         )
         return app
@@ -108,6 +118,8 @@ class OverlayServer:
     @web.middleware
     async def _auth_middleware(self, request: web.Request, handler):
         if request.method != "POST":
+            if request.path in _PROTECTED_GETS:
+                self._check_token(request)
             return await handler(request)
         # CSRF protection: a JSON content type forces a CORS preflight for
         # cross-origin requests, and a foreign Origin is rejected outright.
@@ -117,12 +129,15 @@ class OverlayServer:
         origin = request.headers.get("Origin")
         if origin is not None and origin != f"{request.scheme}://{request.host}":
             raise web.HTTPForbidden(text="cross-origin request refused")
+        self._check_token(request)
+        return await handler(request)
+
+    def _check_token(self, request: web.Request) -> None:
         token = self._config.control_token
         if token is not None:
             given = request.headers.get("X-Control-Token") or request.query.get("token", "")
             if not hmac.compare_digest(given.encode(), token.get_secret_value().encode()):
                 raise web.HTTPUnauthorized(text="invalid control token")
-        return await handler(request)
 
     async def _index(self, request: web.Request) -> web.Response:
         raise web.HTTPFound("/control")
@@ -194,6 +209,26 @@ class OverlayServer:
         username = str(body.get("username") or "test")[:64]
         self._controller.inject_tip(username, tokens, str(body.get("message") or "")[:200])
         return web.json_response({"ok": True})
+
+    async def _rules(self, request: web.Request) -> web.Response:
+        return web.json_response(await self._controller.rules_info())
+
+    async def _rules_check(self, request: web.Request) -> web.Response:
+        body = await _json_body(request)
+        return web.json_response(self._controller.check_rules(body.get("rules")))
+
+    async def _rules_replace(self, request: web.Request) -> web.Response:
+        body = await _json_body(request)
+        revision = body.get("revision")
+        if not isinstance(revision, int) or isinstance(revision, bool):
+            raise web.HTTPBadRequest(text="expected {'revision': int, 'rules': [...]}")
+        try:
+            result = await self._controller.replace_rules(revision, body.get("rules"))
+        except RulesConflict as exc:
+            return web.json_response({"error": str(exc), "revision": exc.revision}, status=409)
+        except RulesInvalid as exc:
+            return web.json_response(exc.check.to_dict(), status=400)
+        return web.json_response(result)
 
 
 async def _json_body(request: web.Request) -> dict[str, Any]:
