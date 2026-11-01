@@ -79,6 +79,14 @@ class QueueCleared(Event):
 
 
 @dataclass(frozen=True, kw_only=True)
+class QueuePauseChanged(Event):
+    """The queue was paused or resumed. While paused, no new action starts."""
+
+    type: ClassVar[str] = "queue_paused"
+    paused: bool
+
+
+@dataclass(frozen=True, kw_only=True)
 class LevelsChanged(Event):
     """Actual (post-safety) output levels, 0..1 of full device scale."""
 

@@ -154,5 +154,11 @@ class ControlClient(QObject):
     def clear_queue(self) -> None:
         self.post("/api/clear")
 
+    def pause_queue(self) -> None:
+        self.post("/api/pause")
+
+    def resume_queue(self) -> None:
+        self.post("/api/resume")
+
     def send_tip(self, username: str, tokens: int) -> None:
         self.post("/api/tip", {"username": username, "tokens": tokens})

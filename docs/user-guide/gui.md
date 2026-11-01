@@ -46,7 +46,11 @@ Closing the window then leaves estim-camming running.
 - **Master**: lowers all output, like the slider in the web panel.
 - **Output**: the actual level of each channel.
 - **Now playing**: what is playing, for whom, what each channel does, time left,
-  and the queue. With **Skip current** and **Clear queue**.
+  and the queue. With **Pause queue**, **Skip current** and **Clear queue**.
+- **Pause queue**: lets the tip that is playing finish, then waits. New tips
+  still join the queue (marked **PAUSED**). **Resume queue** carries on with the
+  queue in order. Use it for a break without losing tips. For an immediate stop,
+  use **STOP**: it also clears the queue.
 - **Tips**: tokens this session, recent tips, and whether your platforms are
   connected.
 - **Edit rules…**: opens the rules editor (below).

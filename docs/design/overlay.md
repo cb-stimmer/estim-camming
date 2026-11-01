@@ -18,6 +18,8 @@ class Controller(Protocol):
     def set_scale(self, scale: float) -> None
     def skip_current(self) -> None
     def clear_queue(self) -> None
+    def pause_queue(self) -> None
+    def resume_queue(self) -> None
     def inject_tip(self, username: str, tokens: int, message: str = "") -> None
     def snapshot(self) -> dict
     async def rules_info(self) -> dict
@@ -40,6 +42,8 @@ class Controller(Protocol):
 | POST | `/api/scale` | `{"scale": 0..1}` master level |
 | POST | `/api/skip` | Skip current action |
 | POST | `/api/clear` | Clear queue |
+| POST | `/api/pause` | Pause the queue: the current action finishes, no new one starts, tips still queue |
+| POST | `/api/resume` | Resume the queue |
 | POST | `/api/tip` | `{"username": str, "tokens": int ≥ 1, "message"?: str}` test tip |
 | GET | `/api/rules` | Rules, pattern schemas, limits and file state for the rules editor (needs the token) |
 | POST | `/api/rules/check` | `{"rules": [...]}` → problems, no side effects |
@@ -74,6 +78,7 @@ Snapshot (`Application.snapshot()`):
   "channels": ["A", "B"], "levels": {"A": 0.2, "B": 0.0},
   "current": {"label": "...", "duration": 10.0, "elapsed": 3.2, "tip": {...}, "...": "..."} ,
   "queue": [ {action}, ... ],
+  "paused": false,
   "recent_tips": [ {tip event}, ... ],
   "total_tokens": 1234,
   "menu": [ {"label": "Tease", "min_tokens": 1, "max_tokens": 24, "duration": 5.0} ],
@@ -93,7 +98,9 @@ subscription is bounded (500), so the core never waits for the overlay.
 several Browser Sources and position each widget independently. The page
 background is transparent, and colours are CSS variables (`--fg`, `--accent`,
 `--bg`, `--muted`) that can be overridden in OBS's *Custom CSS* field. The
-`current` widget interpolates progress locally between messages.
+`current` widget interpolates progress locally between messages, and shows
+"Paused" instead of "Waiting for tips…" while the queue is paused and nothing
+plays.
 
 ## Security notes
 

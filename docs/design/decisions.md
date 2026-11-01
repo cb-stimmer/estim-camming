@@ -244,3 +244,22 @@ the soft limit before the plugin is used on skin. Soft limit and balance are
 stored in the box and also apply in the DG-LAB app afterwards; the user guide
 must say so. The 2.0 model (different protocol) is not supported.
 
+## ADR-019: Pausing the queue keeps accepting tips
+
+**Decision.** The scheduler can be paused from the control panel and the
+desktop window (`POST /api/pause` / `/api/resume`). While paused, the playing
+action finishes normally and no new action starts. New tips are still matched
+and queued (subject to `max_queue` and the armed check), and resuming plays the
+queue in order. Pause is a separate flag from arming: an emergency stop still
+disarms and clears the queue, and does not change the pause; arming does not
+resume.
+**Why.** The user asked for a break function that stops after the current tip
+without losing tips that arrive during the break. ADR-005's rule against
+saving up tips is about a *disarmed* output, where the performer has signalled
+"off". A pause is a deliberate, visible hold with the output still armed, and
+the queue still plays one action at a time after resuming, so there is no burst. Pause
+only ever reduces output, so it does not touch the safety invariants.
+**Consequence.** A paused queue can fill up to `max_queue`; further tips are
+rejected as "queue full". The panels and the overlay show the paused state so a
+forgotten pause is noticed. Separate pause/resume routes (not a toggle) keep
+repeated clicks and retries idempotent.

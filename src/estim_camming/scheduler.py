@@ -14,6 +14,7 @@ from estim_camming.events import (
     ActionRejected,
     ActionStarted,
     QueueCleared,
+    QueuePauseChanged,
 )
 from estim_camming.patterns import Pattern
 from estim_camming.plugins import PATTERNS
@@ -41,6 +42,7 @@ class Scheduler:
         self._current: Action | None = None
         self._current_started: float | None = None
         self._skip = False
+        self._paused = False
 
     @property
     def queue(self) -> tuple[Action, ...]:
@@ -49,6 +51,10 @@ class Scheduler:
     @property
     def current(self) -> Action | None:
         return self._current
+
+    @property
+    def paused(self) -> bool:
+        return self._paused
 
     def elapsed(self) -> float:
         if self._current_started is None:
@@ -77,10 +83,25 @@ class Scheduler:
     def skip_current(self) -> None:
         self._skip = True
 
+    def pause(self) -> None:
+        """Start no new actions; the playing one finishes. Tips still queue up."""
+        self._set_paused(True)
+
+    def resume(self) -> None:
+        self._set_paused(False)
+
+    def _set_paused(self, paused: bool) -> None:
+        if paused == self._paused:
+            return
+        self._paused = paused
+        self._wakeup.set()
+        log.info("queue %s", "paused" if paused else "resumed")
+        self._bus.publish(QueuePauseChanged(paused=paused))
+
     async def run(self) -> None:
         while True:
             await self._guard.wait_armed()
-            if not self._queue:
+            if self._paused or not self._queue:
                 self._wakeup.clear()
                 await self._wakeup.wait()
                 continue

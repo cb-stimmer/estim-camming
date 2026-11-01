@@ -52,7 +52,7 @@ loop, so no threads are involved:
   `connectionChanged(bool, detail)`. Polling instead of the WebSocket keeps the
   client stateless and self-healing across engine restarts. QtWebSockets isn't
   part of `PySide6-Essentials`, and the snapshot is small.
-- **Commands:** `POST /api/{arm,stop,scale,skip,clear,tip}` with
+- **Commands:** `POST /api/{arm,stop,scale,skip,clear,pause,resume,tip}` with
   `Content-Type: application/json`, the token header, and a 3 s timeout. Every
   reply triggers an immediate poll. Failures emit `commandFailed` and show in the
   status bar and the engine log.
@@ -67,7 +67,7 @@ works in short tiles:
 | Status | ARMED / DISARMED / NOT CONNECTED / ENGINE STOPPED, connection state |
 | Controls | Big STOP button, Arm (hidden while armed), master slider, "Keep window on top" |
 | Output | One bar per device channel (actual post-safety level) |
-| Now playing | Action label, time left, tipper and per-channel outputs, progress, queue, Skip/Clear |
+| Now playing | Action label, time left, tipper and per-channel outputs, progress, queue (marked PAUSED while paused), Pause/Resume, Skip, Clear |
 | Tips | Session total, recent tips, platform status |
 | Test tip | Username + tokens → `/api/tip` |
 

@@ -40,6 +40,8 @@ class Controller(Protocol):
     def set_scale(self, scale: float) -> None: ...
     def skip_current(self) -> None: ...
     def clear_queue(self) -> None: ...
+    def pause_queue(self) -> None: ...
+    def resume_queue(self) -> None: ...
     def inject_tip(self, username: str, tokens: int, message: str = "") -> None: ...
     def snapshot(self) -> dict[str, Any]: ...
     async def rules_info(self) -> dict[str, Any]: ...
@@ -69,6 +71,8 @@ class OverlayServer:
                 web.post("/api/scale", self._scale),
                 web.post("/api/skip", self._skip),
                 web.post("/api/clear", self._clear),
+                web.post("/api/pause", self._pause),
+                web.post("/api/resume", self._resume),
                 web.post("/api/tip", self._tip),
                 web.get("/api/rules", self._rules),
                 web.post("/api/rules/check", self._rules_check),
@@ -196,6 +200,14 @@ class OverlayServer:
 
     async def _clear(self, request: web.Request) -> web.Response:
         self._controller.clear_queue()
+        return web.json_response({"ok": True})
+
+    async def _pause(self, request: web.Request) -> web.Response:
+        self._controller.pause_queue()
+        return web.json_response({"ok": True})
+
+    async def _resume(self, request: web.Request) -> web.Response:
+        self._controller.resume_queue()
         return web.json_response({"ok": True})
 
     async def _tip(self, request: web.Request) -> web.Response:

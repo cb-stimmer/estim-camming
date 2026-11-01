@@ -158,6 +158,12 @@ class Application:
     def clear_queue(self) -> None:
         self.scheduler.clear()
 
+    def pause_queue(self) -> None:
+        self.scheduler.pause()
+
+    def resume_queue(self) -> None:
+        self.scheduler.resume()
+
     def inject_tip(self, username: str, tokens: int, message: str = "") -> None:
         self.bus.publish(
             TipEvent(platform="control-panel", username=username, tokens=tokens, message=message)
@@ -242,6 +248,7 @@ class Application:
                 else None
             ),
             "queue": [asdict(a) for a in self.scheduler.queue],
+            "paused": self.scheduler.paused,
             "recent_tips": [t.to_dict() for t in self.recent_tips],
             "total_tokens": self.total_tokens,
             "menu": self.rules.menu(),

@@ -42,7 +42,9 @@ body { font-size: 24px; }
 Don't add the control panel to your scene. Open
 `http://127.0.0.1:8765/control` in a normal browser window, or as an OBS
 **Custom Browser Dock** (**Docks** → **Custom Browser Docks…**) so the STOP
-button is always next to your OBS controls. Or use the desktop
+button is always next to your OBS controls. **Pause queue** lets the current
+tip finish and then holds the rest; new tips keep queueing until you press
+**Resume queue**. While paused, the overlay's "Now" widget shows *Paused*. Or use the desktop
 [control window](gui.md) (`estim-camming gui`) and tile it next to OBS.
 
 ## Notes

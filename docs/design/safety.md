@@ -90,7 +90,8 @@ S13. **Rule changes are bounded and forward-only.** Replacing the rules at run
   in the web panel and in the desktop window.
 - **Arm** button (the only way to arm unless `start_armed`).
 - **Master level** slider (S4 `scale`).
-- **Skip current** and **Clear queue**.
+- **Pause queue** / **Resume queue**, **Skip current** and **Clear queue**.
+  Pause only holds back new actions; it never replaces STOP.
 - Ctrl+C in the terminal (S9).
 
 ## Known limitations

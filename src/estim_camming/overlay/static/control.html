@@ -15,6 +15,7 @@
   button:hover { filter: brightness(1.2); }
   #stop { background: #d0203a; font-size: 28px; font-weight: 700; width: 100%; padding: 24px; }
   #arm { background: #2f7d45; }
+  #pause.paused { background: #b7791f; }
   .status { font-size: 22px; font-weight: 700; }
   .armed { color: #6fe08a; } .disarmed { color: #ff6b7d; }
   .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
@@ -55,7 +56,8 @@
   <h2>Now playing / queue</h2>
   <div id="current" class="muted"></div>
   <ul id="queue"></ul>
-  <div class="row" style="margin-top:8px"><button id="skip">Skip current</button><button id="clear">Clear queue</button></div>
+  <div class="row" style="margin-top:8px"><button id="pause">Pause queue</button><button id="skip">Skip current</button><button id="clear">Clear queue</button></div>
+  <p class="muted" style="margin:6px 0 0">Pause lets the current tip finish, then waits. New tips still join the queue.</p>
 </section>
 
 <section>
@@ -86,6 +88,8 @@
 
   $("stop").onclick = () => post("/api/stop");
   $("arm").onclick = () => post("/api/arm");
+  let paused = false;
+  $("pause").onclick = () => post(paused ? "/api/resume" : "/api/pause");
   $("skip").onclick = () => post("/api/skip");
   $("clear").onclick = () => post("/api/clear");
   $("scale").oninput = (e) => { $("scaleVal").textContent = e.target.value + "%"; };
@@ -108,9 +112,12 @@
       $("scaleVal").textContent = Math.round(state.scale * 100) + "%";
     }
     $("levels").innerHTML = levelBars(state);
-    $("current").textContent = state.current
+    paused = state.paused;
+    $("pause").textContent = paused ? "Resume queue" : "Pause queue";
+    $("pause").classList.toggle("paused", paused);
+    $("current").textContent = (state.current
       ? `▶ ${state.current.label} (${state.current.duration.toFixed(0)}s)`
-      : "Idle";
+      : "Idle") + (paused ? ` · queue paused (${state.queue.length} waiting)` : "");
     $("queue").innerHTML = state.queue.map((a) =>
       `<li>${escapeHtml(a.label)} <span class="muted">${escapeHtml(a.tip ? a.tip.username : "")}</span></li>`
     ).join("");

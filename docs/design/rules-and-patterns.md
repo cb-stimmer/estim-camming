@@ -90,6 +90,7 @@ at a time:
 
 ```text
 patterns = one Pattern instance per ChannelOutput
+(wait while disarmed, paused or the queue is empty)
 for each tick (1 / tick_hz seconds) while t < duration:
     if skip requested or guard disarmed: interrupted = True; break
     level[ch] = clamp(pattern[ch].level(t, duration), 0, 1) * output[ch].intensity
@@ -102,6 +103,12 @@ finally: guard.set_levels(all zero); publish ActionFinished
   output is off.
 - `clear()` empties the queue. It is called automatically on every emergency stop.
 - `skip_current()` ends the playing action early.
+- `pause()` / `resume()` (`paused`): while paused, the run loop starts no new
+  action. The playing action still plays to its end, `enqueue()` keeps
+  accepting actions (same rules as above), and `resume()` continues with the
+  queue in order. Each change publishes `QueuePauseChanged`. Pausing is
+  independent of arming: an emergency stop still clears the queue and leaves
+  the pause as it was. See ADR-019.
 
 Future options (not implemented): combining simultaneous actions instead of
 queueing them, priority for large tips, and an idle pattern.

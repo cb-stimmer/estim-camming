@@ -65,6 +65,11 @@ async def test_control_api(config_data):
         ).status == 403
         assert (await client.post("/api/stop", json={}, headers=headers)).status == 200
         assert not app.guard.armed
+        assert (await client.post("/api/pause", json={})).status == 401
+        assert (await client.post("/api/pause", json={}, headers=headers)).status == 200
+        assert (await (await client.get("/api/state")).json())["paused"] is True
+        assert (await client.post("/api/resume", json={}, headers=headers)).status == 200
+        assert app.scheduler.paused is False
         state = await (await client.get("/api/state")).json()
         assert state["armed"] is False and len(state["menu"]) == 6
         assert (await client.get("/overlay")).status == 200

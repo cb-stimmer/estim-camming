@@ -101,6 +101,22 @@ def test_space_types_in_text_fields_but_stops_elsewhere(gui):
     wait_until(app, lambda: state.get("armed") is False, what="stopped by Space")
 
 
+def test_pause_and_resume_queue(gui):
+    app, window, engine, state = gui
+    window.arm_button.click()
+    wait_until(app, lambda: state.get("armed") is True, what="armed")
+    window.pause_button.click()
+    wait_until(app, lambda: state.get("paused") is True, what="paused")
+    assert window.pause_button.text() == "Resume queue"
+    window._send_test_tip()
+    wait_until(app, lambda: len(state.get("queue", [])) == 1, what="tip queued")
+    assert state.get("current") is None
+    assert window.queue_label.text() == "Queue (1) – PAUSED"
+    window.pause_button.click()
+    wait_until(app, lambda: state.get("current") is not None, what="playing after resume")
+    assert window.pause_button.text() == "Pause queue"
+
+
 def test_engine_crash_is_shown(gui):
     app, window, engine, state = gui
     engine._proc.kill()

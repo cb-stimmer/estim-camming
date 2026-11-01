@@ -46,13 +46,14 @@
   for (const el of document.querySelectorAll(".widget")) el.hidden = !wanted.includes(el.id);
 
   const body = (id) => document.querySelector(`#${id} .body`);
-  let current = null, flashTimer = null;
+  let current = null, paused = false, flashTimer = null;
 
   function render(state, event) {
     body("menu").innerHTML = state.menu.map((m) =>
       `<div class="row"><span>${escapeHtml(m.label)}</span><span>${tokenRange(m)}</span></div>`
     ).join("");
     current = state.current ? { ...state.current, receivedAt: performance.now() } : null;
+    paused = state.paused;
     body("queue").innerHTML = state.queue.length
       ? state.queue.slice(0, 5).map((a) =>
           `<div class="row"><span>${escapeHtml(a.label)}</span>` +
@@ -70,7 +71,10 @@
   }
 
   function renderCurrent() {
-    if (!current) { body("current").innerHTML = `<div class="muted">Waiting for tips…</div>`; return; }
+    if (!current) {
+      body("current").innerHTML = `<div class="muted">${paused ? "Paused" : "Waiting for tips…"}</div>`;
+      return;
+    }
     const elapsed = current.elapsed + (performance.now() - current.receivedAt) / 1000;
     const remaining = Math.max(0, current.duration - elapsed);
     const pct = Math.min(100, (elapsed / current.duration) * 100);

@@ -36,6 +36,7 @@ from estim_camming.gui.help import open_help
 
 RED = "#c62828"
 GREEN = "#2e7d32"
+AMBER = "#b26a00"
 MAX_LIST_ROWS = 6
 LOG_LINES = 1000
 
@@ -222,10 +223,16 @@ class ControlWindow(QMainWindow):
         self.queue_list = QListWidget()
         self.queue_list.setMaximumHeight(MAX_LIST_ROWS * 20)
         buttons = QHBoxLayout()
+        self.pause_button = QPushButton("Pause queue")
+        self.pause_button.setToolTip(
+            "Let the current tip finish, then wait. New tips still join the queue."
+        )
+        self.pause_button.clicked.connect(self._toggle_pause)
         skip = QPushButton("Skip current")
         skip.clicked.connect(self.client.skip)
         clear = QPushButton("Clear queue")
         clear.clicked.connect(self.client.clear_queue)
+        buttons.addWidget(self.pause_button)
         buttons.addWidget(skip)
         buttons.addWidget(clear)
         layout.addLayout(title)
@@ -322,6 +329,12 @@ class ControlWindow(QMainWindow):
         if not self.scale_slider.isSliderDown():  # keyboard / mouse wheel
             self._send_scale()
 
+    def _toggle_pause(self) -> None:
+        if (self._state or {}).get("paused"):
+            self.client.resume_queue()
+        else:
+            self.client.pause_queue()
+
     def _send_test_tip(self) -> None:
         self.client.send_tip(self.tip_user.text().strip() or "test", self.tip_tokens.value())
 
@@ -357,7 +370,10 @@ class ControlWindow(QMainWindow):
         self._update_progress()
 
         queue = state.get("queue", [])
-        self.queue_label.setText(f"Queue ({len(queue)})")
+        paused = bool(state.get("paused"))
+        self.queue_label.setText(f"Queue ({len(queue)})" + (" – PAUSED" if paused else ""))
+        self.queue_label.setStyleSheet(f"color: {AMBER}; font-weight: bold;" if paused else "")
+        self.pause_button.setText("Resume queue" if paused else "Pause queue")
         self._fill(self.queue_list, [model.queue_text(a) for a in queue])
         self._fill(self.tips_list, [model.tip_text(t) for t in state.get("recent_tips", [])])
         self.total_label.setText(f"{state.get('total_tokens', 0)} tokens this session")

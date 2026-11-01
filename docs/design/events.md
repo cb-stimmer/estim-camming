@@ -33,6 +33,7 @@ All events are frozen dataclasses deriving from `events.Event`, with a
 | `ActionStarted` | `action_started` | action | scheduler |
 | `ActionFinished` | `action_finished` | action, interrupted | scheduler |
 | `QueueCleared` | `queue_cleared` | count | scheduler |
+| `QueuePauseChanged` | `queue_paused` | paused | scheduler (only on a change) |
 | `LevelsChanged` | `levels` | levels (channel → 0..1 of full scale) | safety guard |
 | `SafetyStateChanged` | `safety` | armed, scale, reason | safety guard |
 | `RulesChanged` | `rules_changed` | revision, saved | application (rules editor save) |
